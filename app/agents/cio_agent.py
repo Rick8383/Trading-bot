@@ -52,7 +52,8 @@ class CIOAgent:
             "quant": self.s.cio_weights.quant,
             "macro": self.s.cio_weights.macro,
             "volume": self.s.cio_weights.other,
-            "pattern": self.s.cio_weights.other,
+            "pattern": self.s.cio_weights.other * 0.5,   # SMC: low weight (noisy)
+            "ml": self.s.cio_weights.other * 0.5,        # ML: advisory only
         }
         base_conviction = conv.compute_conviction(agg.role_scores, weights)
 

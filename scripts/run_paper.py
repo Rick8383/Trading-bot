@@ -38,6 +38,7 @@ def main() -> None:
     ap.add_argument("--db", default=None, help="SQLite path for durable persistence")
     ap.add_argument("--report", default="reports/paper_report.html",
                     help="HTML report output path (set empty to skip)")
+    ap.add_argument("--ml", action="store_true", help="include the ML proposer agent")
     args = ap.parse_args()
 
     settings = load_config()
@@ -46,7 +47,8 @@ def main() -> None:
         from app.db.store import SQLiteStore
         store = SQLiteStore(args.db)
 
-    session = PaperTradingSession(settings, store=store)
+    from app.agents import build_agents
+    session = PaperTradingSession(settings, store=store, agents=build_agents(include_ml=args.ml))
 
     if args.source == "synthetic":
         symbols = args.symbols or [f"SYM{i}" for i in range(8)]

@@ -41,6 +41,7 @@ def main() -> None:
     ap.add_argument("--interval", type=int, default=3600, help="seconds between cycles (start loop)")
     ap.add_argument("--cycles", type=int, default=0, help="run N cycles then exit (0 = run forever)")
     ap.add_argument("--db", default="data_store/trading.db")
+    ap.add_argument("--ml", action="store_true", help="include the ML proposer agent")
     args = ap.parse_args()
 
     s = load_config()
@@ -48,8 +49,10 @@ def main() -> None:
     broker = make_broker(s, args.venue)
     symbols = args.symbols or (s.universe.crypto[:5] if args.source in ("crypto", "auto") else s.universe.etfs)
 
+    from app.agents import build_agents
     runner = RealtimeRunner(settings=s, provider=provider, broker=broker,
-                            symbols=symbols, store=SQLiteStore(args.db))
+                            symbols=symbols, store=SQLiteStore(args.db),
+                            agents=build_agents(include_ml=args.ml))
     print(f"Live loop | source={args.source} | venue={args.venue} | broker={type(broker).__name__} "
           f"| symbols={len(symbols)} | live_unlocked={s.live_unlocked}")
 

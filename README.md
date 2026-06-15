@@ -258,9 +258,25 @@ Actions large-cap liquides, ETF (SPY/QQQ/IWM/TLT/GLD/XLF/XLK/XLE), crypto
 - **Phase 3b — ✅ livrée :** exécution **live-paper** via Alpaca paper + Binance
   testnet (argent fictif), boucle temps réel (`RealtimeRunner`, APScheduler),
   factory broker sûre par défaut, `scripts/run_live.py`.
-- **Phase 4 :** walk-forward complet, SMC avancé (BOS/CHOCH, FVG, liquidity
-  sweeps, Wyckoff — faiblement pondérés), premiers modèles ML (XGBoost) en
-  proposeurs ; News/Macro/Sentiment/On-chain ; PostgreSQL/Redis.
+- **Phase 4 — ✅ affinage livré :** walk-forward **out-of-sample** complet
+  (sélection in-sample, éval hors-échantillon, stabilité des paramètres +
+  Monte Carlo), agent **SMC** (BOS/CHOCH, FVG, liquidity sweeps — faiblement
+  pondéré), agent **ML proposeur** (régression logistique numpy, XGBoost/sklearn
+  auto-détectés ; advisory only).
+- **Phase 4b :** Wyckoff, News/Macro/Sentiment/On-chain, PostgreSQL/Redis,
+  Grafana/Prometheus.
+
+### Affiner l'intelligence
+
+```bash
+python scripts/run_walkforward.py --bars 1000     # robustesse hors-échantillon
+python scripts/run_paper.py --ml                  # active l'agent ML (proposeur)
+```
+
+SMC et ML sont des **proposeurs faiblement pondérés** : ils nuancent la
+conviction mais ne peuvent ni décider, ni outrepasser le veto risque. Le ML
+s'entraîne par cycle (donc opt-in via `--ml`) et s'abstient (score 0) sans
+données suffisantes.
 - **Phase 4 :** ML (XGBoost/LightGBM/CatBoost) puis Deep Learning (LSTM/TFT/TCN),
   toujours en *proposeurs*, jamais décideurs seuls.
 - **Phase 5 :** live trading — désactivé par défaut, déverrouillage manuel, après

@@ -59,6 +59,7 @@ class PaperTradingSession:
     history: dict[str, pd.DataFrame] = field(default_factory=dict)
     store: object | None = None              # optional SQLiteStore for durability
     data_sources: dict[str, str] = field(default_factory=dict)
+    agents: list | None = None               # analytic roster (defaults to standard set)
 
     def __post_init__(self) -> None:
         self.broker = PaperBroker(
@@ -74,7 +75,7 @@ class PaperTradingSession:
         self.guard = DrawdownGuard(self.settings.capital.initial, self.settings.capital.initial)
         self.pipeline = DecisionPipeline(
             settings=self.settings,
-            agents=DEFAULT_ANALYTIC_AGENTS,
+            agents=self.agents or DEFAULT_ANALYTIC_AGENTS,
             risk_manager=RiskManager(self.settings.risk),
             cio=CIOAgent(self.settings),
             knowledge_base=self.kb,

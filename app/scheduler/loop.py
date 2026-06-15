@@ -43,6 +43,7 @@ class RealtimeRunner:
     symbols: list[str]
     store: object | None = None
     ema_periods: tuple[int, ...] = field(default=(20, 50, 100, 200))
+    agents: list | None = None
 
     def __post_init__(self) -> None:
         self.kb = KnowledgeBase(self.settings.learning.store_path, self.settings.learning.min_samples_for_lesson)
@@ -50,7 +51,7 @@ class RealtimeRunner:
         self.audit = AuditAgent()
         self.guard = DrawdownGuard(self.settings.capital.initial, self.settings.capital.initial)
         self.pipeline = DecisionPipeline(
-            settings=self.settings, agents=DEFAULT_ANALYTIC_AGENTS,
+            settings=self.settings, agents=self.agents or DEFAULT_ANALYTIC_AGENTS,
             risk_manager=RiskManager(self.settings.risk), cio=CIOAgent(self.settings),
             knowledge_base=self.kb, audit=self.audit,
         )
