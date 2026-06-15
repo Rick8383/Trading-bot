@@ -23,6 +23,7 @@ from app.core.config import Settings
 from app.core.constants import Action
 from app.data import indicators as ind
 from app.data.market_data import MarketDataProvider, SyntheticConfig, synthetic_ohlcv
+from app.data.providers import resample_ohlcv
 from app.decision.exposure import Position
 from app.execution.order_validator import Order
 from app.execution.paper_broker import PaperBroker
@@ -53,8 +54,10 @@ class SessionResult:
 @dataclass
 class PaperTradingSession:
     settings: Settings
-    timeframes: tuple[str, ...] = ("1H", "4H", "1D", "1W")
+    timeframes: tuple[str, ...] = ("1D", "1W")
     history: dict[str, pd.DataFrame] = field(default_factory=dict)
+    store: object | None = None              # optional SQLiteStore for durability
+    data_sources: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.broker = PaperBroker(
@@ -83,20 +86,56 @@ class PaperTradingSession:
     def load_synthetic(self, symbols: list[str], bars: int = 400) -> None:
         for sym in symbols:
             self.history[sym] = synthetic_ohlcv(sym, SyntheticConfig(bars=bars))
+            self.data_sources[sym] = "synthetic"
+
+    def load_synthetic_mixed(self, symbols: list[str], bars: int = 400) -> None:
+        """Load synthetic data spanning bull/bear/sideways regimes.
+
+        Used for offline demos so the learning loop sees genuinely different
+        regimes (and thus surfaces lessons like regime-misalignment losses).
+        """
+        drifts = [0.004, -0.004, 0.0003, 0.005, -0.003, 0.0]
+        vols = [0.012, 0.018, 0.02, 0.013, 0.022, 0.02]
+        for i, sym in enumerate(symbols):
+            cfg = SyntheticConfig(bars=bars, drift=drifts[i % len(drifts)],
+                                  volatility=vols[i % len(vols)], seed=11 + i)
+            self.history[sym] = synthetic_ohlcv(sym, cfg)
+            self.data_sources[sym] = "synthetic_mixed"
+
+    def load_from_provider(self, provider: MarketDataProvider, symbols: list[str], bars: int = 500) -> None:
+        """Fetch daily history per symbol from a real provider (with fallback).
+
+        The simulation is daily-driven; the weekly timeframe is derived by
+        resampling, so the multi-timeframe read is genuine (1D + 1W).
+        """
+        for sym in symbols:
+            try:
+                df = provider.get_ohlcv(sym, "1D", bars)
+            except Exception:  # noqa: BLE001
+                df = synthetic_ohlcv(sym, SyntheticConfig(bars=bars))
+            if len(df) >= 250:
+                self.history[sym] = df
+                src = getattr(provider, "last_source", {}).get(sym, "live")
+                self.data_sources[sym] = src
 
     def _frames_at(self, t: int) -> dict[str, dict[str, pd.DataFrame]]:
         """Build enriched multi-timeframe frames using data up to bar t (exclusive).
 
-        For the synthetic harness we approximate higher timeframes by resampling
-        the daily series; in production each timeframe is fetched natively.
+        1D is native; 1W is resampled from the daily window. Both are enriched
+        with the indicator panel. Agents weight the timeframes and renormalize
+        over whatever is present.
         """
         out: dict[str, dict[str, pd.DataFrame]] = {}
+        ema_periods = tuple(self.settings.strategy.ema_periods)
         for sym, df in self.history.items():
             window = df.iloc[:t]
             if len(window) < 60:
                 continue
-            enriched = ind.enrich(window, tuple(self.settings.strategy.ema_periods))
-            tf_map = {tf: enriched for tf in self.timeframes}  # shared daily proxy
+            daily = ind.enrich(window, ema_periods)
+            tf_map = {"1D": daily}
+            weekly = resample_ohlcv(window, "1W")
+            if len(weekly) >= 40:
+                tf_map["1W"] = ind.enrich(weekly, ema_periods)
             out[sym] = tf_map
         return out
 
@@ -137,6 +176,9 @@ class PaperTradingSession:
 
             decisions = self.pipeline.run_cycle(frames, state)
             decisions_count += len(decisions)
+            if self.store:
+                for d in decisions:
+                    self.store.save_decision(d)
 
             if not self.kill.is_active:
                 executed += self._execute(decisions)
@@ -155,6 +197,10 @@ class PaperTradingSession:
         trade_returns = [c.return_pct for c in self.broker.closed]
         report = compute_report(equity_curve or [self.settings.capital.initial], trade_returns)
         proposals = propose_improvements(self.kb, self.journal.load())
+        if self.store:
+            self.store.upsert_lessons(self.kb.lessons)
+            self.store.save_metric(equity_curve[-1] if equity_curve else self.settings.capital.initial,
+                                   self.guard.drawdown, report)
         return SessionResult(
             equity_curve=equity_curve, trade_returns=trade_returns, decisions=decisions_count,
             executed=executed, report=report, lessons=self.kb.active_lessons(),
@@ -208,6 +254,8 @@ class PaperTradingSession:
             rec.error_tags = [t.key for t in tags]
             self.journal.append(rec)
             self.kb.ingest(rec, tags)
+            if self.store:
+                self.store.save_trade(rec)
 
             # Track loss streak for adaptive de-risking.
             if trade.pnl < 0:

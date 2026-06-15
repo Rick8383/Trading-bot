@@ -136,6 +136,50 @@ Factor/Max Drawdown, **les leçons apprises**, et **les propositions d'améliora
 
 ---
 
+## Données & courtiers — faut-il un compte ?
+
+**Pour voir ce que le bot sait faire : non, aucun compte.** Le paper trading a
+besoin de **données de marché**, pas d'un courtier.
+
+| Service | Données ? | Exécution bot ? | Verdict |
+|---|---|---|---|
+| **ccxt** (Binance/Kraken/…) | ✅ OHLCV public, **sans clé API** | (plus tard) | ✅ crypto, gratuit |
+| **yfinance** (Yahoo) | ✅ actions/ETF, gratuit, sans compte | ❌ | ✅ actions, gratuit |
+| **Trade Republic** | ❌ | ❌ pas d'API publique | ⛔ inutilisable pour un bot |
+| **TradingView** | partiel | ❌ n'exécute pas d'ordres (alertes seulement) | ⛔ pas un courtier |
+| **Alpaca** | ✅ | ✅ **paper trading API gratuite** | 🔜 cible pour le live-paper (actions US) |
+| **Binance testnet** | ✅ | ✅ ordres fictifs | 🔜 cible crypto live-paper |
+
+Donc : on commence sur **données réelles gratuites** (ccxt + yfinance). Plus tard,
+pour exécuter des ordres « comme en vrai » sans risquer d'argent, on branchera
+**Alpaca paper** et/ou **Binance testnet** (un compte gratuit, des clés *paper*,
+zéro argent réel). Trade Republic / TradingView ne conviennent pas à un bot.
+
+### Lancer sur de vraies bougies
+
+```bash
+python scripts/fetch_data.py --source crypto                  # met en cache BTC, ETH, ...
+python scripts/run_paper.py  --source crypto                  # paper sur crypto réel
+python scripts/run_paper.py  --source equities                # paper sur SPY/QQQ/...
+python scripts/run_paper.py  --source auto --symbols BTC/USDT SPY QQQ
+python scripts/run_paper.py  --db data_store/trading.db       # mémoire durable (SQLite)
+```
+
+> **Session cloud (egress restreint) :** les hôtes de données doivent être sur
+> l'allowlist réseau de l'environnement (`api.binance.com`,
+> `query1.finance.yahoo.com`, `query2.finance.yahoo.com`). Sinon le bot **bascule
+> automatiquement sur des données synthétiques** et l'indique (`synthetic_fallback`).
+> Voir https://code.claude.com/docs/en/claude-code-on-the-web pour la politique réseau.
+> En local (réseau ouvert), tout fonctionne directement.
+
+### Persistance
+
+`--db data_store/trading.db` active une base **SQLite** (zéro infrastructure) qui
+conserve décisions, trades, leçons et métriques **entre les runs** : la mémoire
+d'apprentissage s'accumule et le bot s'affine à chaque session. Le schéma est
+identique aux migrations PostgreSQL (`migrations/`), donc passer à Postgres en
+production = un changement de chaîne de connexion, pas une réécriture.
+
 ## Univers
 
 Actions large-cap liquides, ETF (SPY/QQQ/IWM/TLT/GLD/XLF/XLK/XLE), crypto
@@ -154,10 +198,15 @@ Actions large-cap liquides, ETF (SPY/QQQ/IWM/TLT/GLD/XLF/XLK/XLE), crypto
 - **Phase 1 — ✅ livrée :** agents déterministes (Trend, Momentum, Volatility,
   Regime, Volume, Structure, Quant), CIO, Risk, Execution paper, Audit,
   backtesting, **boucle d'apprentissage**, API, tests.
-- **Phase 2 :** persistance PostgreSQL/Redis, SMC avancé (BOS/CHOCH, FVG,
-  liquidity sweeps, Wyckoff — faiblement pondérés), walk-forward complet, rapport
-  HTML.
-- **Phase 3 :** données réelles (ccxt/yfinance), News/Macro/Sentiment/On-chain.
+- **Phase 2 — ✅ livrée :** connecteurs de **données réelles** (ccxt crypto +
+  yfinance actions/ETF) avec cache disque et repli synthétique, multi-timeframe
+  réel (1D + 1W resamplé), **persistance durable SQLite** (décisions/trades/
+  leçons/métriques accumulées entre runs), scripts `fetch_data` / `run_paper
+  --source`.
+- **Phase 2b :** SMC avancé (BOS/CHOCH, FVG, liquidity sweeps, Wyckoff —
+  faiblement pondérés), walk-forward complet, rapport HTML, PostgreSQL/Redis.
+- **Phase 3 :** News/Macro/Sentiment/On-chain ; exécution live-paper via Alpaca
+  paper + Binance testnet.
 - **Phase 4 :** ML (XGBoost/LightGBM/CatBoost) puis Deep Learning (LSTM/TFT/TCN),
   toujours en *proposeurs*, jamais décideurs seuls.
 - **Phase 5 :** live trading — désactivé par défaut, déverrouillage manuel, après

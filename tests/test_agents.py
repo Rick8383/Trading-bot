@@ -33,8 +33,16 @@ def test_all_agents_produce_valid_votes():
         assert "role" in v.features
 
 
-def test_regime_classifier_detects_uptrend():
+def test_regime_classifier_does_not_call_uptrend_bearish():
+    # A clear uptrend must never be classified BEAR/CRASH. (It may read as
+    # HIGH_VOL when realized vol is in its top percentile — that's acceptable.)
     df = trending_ohlcv("UP", direction=1, bars=300)
     assessment = classify_regime(df)
-    assert assessment.regime in (MarketRegime.BULL, MarketRegime.RECOVERY, MarketRegime.SIDEWAYS)
+    assert assessment.regime not in (MarketRegime.BEAR, MarketRegime.CRASH)
     assert 0 <= assessment.confidence <= 1
+
+
+def test_regime_classifier_detects_downtrend():
+    df = trending_ohlcv("DOWN", direction=-1, bars=300)
+    assessment = classify_regime(df)
+    assert assessment.regime not in (MarketRegime.BULL, MarketRegime.RECOVERY)

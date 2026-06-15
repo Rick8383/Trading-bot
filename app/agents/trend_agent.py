@@ -11,23 +11,30 @@ from app.models import AgentVote
 
 
 def _tf_trend_score(df: pd.DataFrame) -> float:
-    """Single-timeframe trend score in [-100, 100] from the EMA stack."""
-    if len(df) < 200 or "ema200" not in df:
+    """Single-timeframe trend score in [-100, 100] from the EMA stack.
+
+    Degrades gracefully on shorter histories (e.g. a weekly series with <200
+    bars): it scores only the EMA rungs that are actually available, and uses
+    the longest available EMA as the anchor for the distance term.
+    """
+    if len(df) < 40:
         return 0.0
     last = df.iloc[-1]
-    e20, e50, e100, e200 = last.get("ema20"), last.get("ema50"), last.get("ema100"), last.get("ema200")
     price = last["close"]
-    if any(pd.isna(x) for x in (e20, e50, e100, e200)):
+    emas = [last.get(f"ema{p}") for p in (20, 50, 100, 200)]
+    present = [(p, e) for p, e in zip((20, 50, 100, 200), emas) if not pd.isna(e)]
+    if len(present) < 2:
         return 0.0
 
-    # Bullish stack: e20>e50>e100>e200 and price above. Score each rung.
-    rungs = [price > e20, e20 > e50, e50 > e100, e100 > e200]
+    # Score each adjacent rung (price>ema, then each faster EMA above slower).
+    levels = [price] + [e for _, e in present]
+    rungs = [levels[i] > levels[i + 1] for i in range(len(levels) - 1)]
     bull = sum(rungs)
     bear = sum(not r for r in rungs)
     score = (bull - bear) / len(rungs) * 100
 
-    # Distance of price above/below EMA200 adds magnitude (capped).
-    dist = (price / e200 - 1) * 100
+    anchor = present[-1][1]  # longest available EMA
+    dist = (price / anchor - 1) * 100
     score += float(np.clip(dist, -25, 25))
     return float(np.clip(score, -100, 100))
 

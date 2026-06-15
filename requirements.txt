@@ -9,9 +9,9 @@ structlog>=24.1
 fastapi>=0.110
 uvicorn[standard]>=0.29
 
-# --- Optional: market data connectors (install when needed) ---
-# ccxt>=4.2            # crypto exchanges
-# yfinance>=0.2        # equities/ETF historical data
+# --- Market data connectors (Phase 2) ---
+ccxt>=4.2              # crypto exchanges (public OHLCV, no API key needed)
+yfinance>=0.2         # equities/ETF historical data (free, no account)
 
 # --- Optional: heavy backtesting / ML (Phase 2+) ---
 # vectorbt>=0.26

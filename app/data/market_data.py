@@ -8,10 +8,16 @@ intentionally optional imports — the core never hard-depends on them.
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
+
+
+def _stable_hash(text: str) -> int:
+    """Process-independent hash (Python's ``hash`` is salted per run)."""
+    return int(hashlib.md5(text.encode()).hexdigest(), 16)
 
 
 @dataclass
@@ -30,7 +36,7 @@ def synthetic_ohlcv(symbol: str, cfg: SyntheticConfig | None = None) -> pd.DataF
     different assets get different — but repeatable — paths.
     """
     cfg = cfg or SyntheticConfig()
-    seed = None if cfg.seed is None else (cfg.seed + (abs(hash(symbol)) % 100000))
+    seed = None if cfg.seed is None else (cfg.seed + (_stable_hash(symbol) % 100000))
     rng = np.random.default_rng(seed)
 
     log_ret = rng.normal(cfg.drift, cfg.volatility, cfg.bars)
