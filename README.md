@@ -155,6 +155,36 @@ TRADING_DB=data_store/trading.db uvicorn app.main:app --reload
 #    endpoints JSON : /metrics /trades /decisions /lessons /kill-switch
 ```
 
+## Exécution live-paper (argent fictif, zéro risque réel)
+
+Le bot peut exécuter sur de **vrais comptes paper / testnet** (soldes fictifs) —
+jamais d'argent réel sans modifier les endpoints à la main. Double barrière :
+il faut **à la fois** le jeton de déverrouillage **et** des clés API.
+
+```bash
+# Défaut sûr : broker paper interne sur vraies bougies, quelques cycles
+python scripts/run_live.py --source crypto --cycles 3
+
+# Alpaca paper (actions US, argent fictif) — clés gratuites sur alpaca.markets
+export LIVE_TRADING_UNLOCK=I_UNDERSTAND_THE_RISK
+export ALPACA_KEY=... ALPACA_SECRET=...
+python scripts/run_live.py --source equities --venue alpaca --interval 3600
+
+# Binance testnet (crypto, argent fictif) — clés sur testnet.binance.vision
+export LIVE_TRADING_UNLOCK=I_UNDERSTAND_THE_RISK
+export BINANCE_KEY=... BINANCE_SECRET=...
+python scripts/run_live.py --source crypto --venue binance --interval 900
+```
+
+Sans le jeton **ou** les clés, chaque venue **retombe sur le paper broker interne**
+et l'indique. Chaque ordre passe la validation (stop obligatoire) **avant** tout
+appel réseau, paper comme live. Le loop utilise APScheduler s'il est présent,
+sinon une boucle `time.sleep`.
+
+> **À toi de créer les comptes (gratuits, fictifs) :** Alpaca *paper* pour les
+> actions, Binance *testnet* pour la crypto. Trade Republic / TradingView ne
+> conviennent pas (pas d'API d'exécution). À lancer en local (réseau ouvert).
+
 ## Données & courtiers — faut-il un compte ?
 
 **Pour voir ce que le bot sait faire : non, aucun compte.** Le paper trading a
@@ -225,8 +255,9 @@ Actions large-cap liquides, ETF (SPY/QQQ/IWM/TLT/GLD/XLF/XLK/XLE), crypto
 - **Phase 3 — ✅ visualisation livrée :** rapport HTML autonome (SVG côté
   serveur) + dashboard live FastAPI (`/dashboard`, auto-refresh) lisant la base
   durable ; endpoints JSON métriques/trades/décisions/leçons.
-- **Phase 3b :** exécution **live-paper** via Alpaca paper + Binance testnet,
-  boucle temps réel (APScheduler).
+- **Phase 3b — ✅ livrée :** exécution **live-paper** via Alpaca paper + Binance
+  testnet (argent fictif), boucle temps réel (`RealtimeRunner`, APScheduler),
+  factory broker sûre par défaut, `scripts/run_live.py`.
 - **Phase 4 :** walk-forward complet, SMC avancé (BOS/CHOCH, FVG, liquidity
   sweeps, Wyckoff — faiblement pondérés), premiers modèles ML (XGBoost) en
   proposeurs ; News/Macro/Sentiment/On-chain ; PostgreSQL/Redis.

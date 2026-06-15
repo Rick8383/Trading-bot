@@ -13,6 +13,10 @@ uvicorn[standard]>=0.29
 ccxt>=4.2              # crypto exchanges (public OHLCV, no API key needed)
 yfinance>=0.2         # equities/ETF historical data (free, no account)
 
+# --- Real-time loop + live-paper execution (Phase 3b) ---
+APScheduler>=3.10     # interval scheduling (loop falls back to time.sleep if absent)
+# alpaca-py>=0.20     # optional: official Alpaca SDK (we use plain REST via httpx)
+
 # --- Optional: heavy backtesting / ML (Phase 2+) ---
 # vectorbt>=0.26
 # scipy>=1.11
