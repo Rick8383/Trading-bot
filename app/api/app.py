@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
 
 from app.core.config import get_settings
 from app.monitoring.kill_switch import KillSwitch
@@ -23,8 +23,16 @@ _kill = KillSwitch()
 
 
 def _store():
-    """Lazily open the SQLite store if it exists; else None (empty dashboard)."""
-    path = Path(os.getenv("TRADING_DB", "data_store/trading.db"))
+    """Open the configured store (SQLite path or Postgres URL); None if absent."""
+    url = os.getenv("TRADING_DB", "data_store/trading.db")
+    if url.lower().startswith(("postgresql://", "postgres://")):
+        from app.db import make_store
+
+        try:
+            return make_store(url)
+        except Exception:  # noqa: BLE001 - DB unreachable -> empty dashboard
+            return None
+    path = Path(url[len("sqlite:///"):] if url.lower().startswith("sqlite:///") else url)
     if not path.exists():
         return None
     from app.db.store import SQLiteStore
@@ -93,6 +101,14 @@ def kill_reset(operator: str = "operator") -> dict:
         raise HTTPException(status_code=400, detail="kill switch is not active")
     _kill.reset(operator)
     return {"active": _kill.is_active}
+
+
+@app.get("/prometheus", response_class=PlainTextResponse)
+def prometheus() -> str:
+    """Prometheus scrape endpoint (text exposition)."""
+    from app.monitoring.prometheus import render_prometheus
+
+    return render_prometheus(_store(), _kill)
 
 
 @app.get("/dashboard", response_class=HTMLResponse)

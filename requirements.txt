@@ -9,6 +9,11 @@ structlog>=24.1
 fastapi>=0.110
 uvicorn[standard]>=0.29
 
+# --- Production persistence (Phase 5) ---
+# psycopg[binary]>=3.1   # PostgreSQL backend (SQLite works out of the box)
+# Prometheus/Grafana run as containers (see docker-compose.yml); the /prometheus
+# endpoint needs no extra Python dependency.
+
 # --- Market data connectors (Phase 2) ---
 ccxt>=4.2              # crypto exchanges (public OHLCV, no API key needed)
 yfinance>=0.2         # equities/ETF historical data (free, no account)

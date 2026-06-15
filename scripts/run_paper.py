@@ -44,8 +44,8 @@ def main() -> None:
     settings = load_config()
     store = None
     if args.db:
-        from app.db.store import SQLiteStore
-        store = SQLiteStore(args.db)
+        from app.db import make_store
+        store = make_store(args.db)   # sqlite path or postgresql://... URL
 
     from app.agents import build_agents
     session = PaperTradingSession(settings, store=store, agents=build_agents(include_ml=args.ml))

@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.config import load_config  # noqa: E402
 from app.data.providers import make_provider  # noqa: E402
-from app.db.store import SQLiteStore  # noqa: E402
+from app.db import make_store  # noqa: E402
 from app.execution.broker_factory import make_broker  # noqa: E402
 from app.scheduler.loop import RealtimeRunner  # noqa: E402
 
@@ -51,7 +51,7 @@ def main() -> None:
 
     from app.agents import build_agents
     runner = RealtimeRunner(settings=s, provider=provider, broker=broker,
-                            symbols=symbols, store=SQLiteStore(args.db),
+                            symbols=symbols, store=make_store(args.db),
                             agents=build_agents(include_ml=args.ml))
     print(f"Live loop | source={args.source} | venue={args.venue} | broker={type(broker).__name__} "
           f"| symbols={len(symbols)} | live_unlocked={s.live_unlocked}")
