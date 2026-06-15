@@ -116,3 +116,27 @@ class SQLiteStore:
                 "SELECT * FROM trades ORDER BY id DESC LIMIT ?", (limit,)
             ).fetchall()
             return [dict(r) for r in rows]
+
+    def recent_decisions(self, limit: int = 20) -> list[dict]:
+        with closing(self._connect()) as conn:
+            rows = conn.execute(
+                "SELECT * FROM decisions ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def metrics_history(self, limit: int = 200) -> list[dict]:
+        with closing(self._connect()) as conn:
+            rows = conn.execute(
+                "SELECT * FROM metrics ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()
+            return [dict(r) for r in rows][::-1]
+
+    def latest_metric(self) -> dict | None:
+        with closing(self._connect()) as conn:
+            row = conn.execute("SELECT * FROM metrics ORDER BY id DESC LIMIT 1").fetchone()
+            return dict(row) if row else None
+
+    def lessons_list(self) -> list[dict]:
+        with closing(self._connect()) as conn:
+            rows = conn.execute("SELECT * FROM lessons ORDER BY samples DESC").fetchall()
+            return [dict(r) for r in rows]

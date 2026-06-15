@@ -36,6 +36,8 @@ def main() -> None:
     ap.add_argument("--bars", type=int, default=400)
     ap.add_argument("--warmup", type=int, default=230)
     ap.add_argument("--db", default=None, help="SQLite path for durable persistence")
+    ap.add_argument("--report", default="reports/paper_report.html",
+                    help="HTML report output path (set empty to skip)")
     args = ap.parse_args()
 
     settings = load_config()
@@ -115,6 +117,19 @@ def main() -> None:
         print(f"\nPersisted to {args.db}: "
               f"{store.count('decisions')} decisions, {store.count('trades')} trades, "
               f"{store.count('lessons')} lessons, {store.count('metrics')} metric snapshots.")
+
+    if args.report:
+        from collections import Counter
+
+        from app.monitoring.report import write_report
+        path = write_report(
+            args.report, title="Paper Trading Report",
+            report=r, equity_curve=result.equity_curve, trades=result.trades,
+            lessons=result.lessons, proposals=result.proposals,
+            data_origin=dict(Counter(session.data_sources.values())),
+            initial_capital=settings.capital.initial, min_samples=session.kb.min_samples,
+        )
+        print(f"\nHTML report written to {path}")
 
 
 if __name__ == "__main__":

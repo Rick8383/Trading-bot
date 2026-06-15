@@ -48,6 +48,7 @@ class SessionResult:
     report: object
     lessons: list
     proposals: list
+    trades: list = field(default_factory=list)
     kill_switched: bool = False
 
 
@@ -204,7 +205,8 @@ class PaperTradingSession:
         return SessionResult(
             equity_curve=equity_curve, trade_returns=trade_returns, decisions=decisions_count,
             executed=executed, report=report, lessons=self.kb.active_lessons(),
-            proposals=proposals, kill_switched=self.kill.is_active,
+            proposals=proposals, trades=list(self.broker.closed),
+            kill_switched=self.kill.is_active,
         )
 
     # --- helpers -------------------------------------------------------

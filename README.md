@@ -136,6 +136,25 @@ Factor/Max Drawdown, **les leçons apprises**, et **les propositions d'améliora
 
 ---
 
+## Visualisation — voir ce qu'il fait
+
+**Rapport HTML autonome** (graphiques SVG générés côté serveur, zéro dépendance
+externe, s'ouvre hors-ligne) :
+
+```bash
+python scripts/run_paper.py --db data_store/trading.db --report reports/paper_report.html
+# -> ouvre reports/paper_report.html : KPI, courbe d'équité + drawdown, trades,
+#    leçons apprises, propositions d'amélioration
+```
+
+**Dashboard live** (FastAPI, lit la base durable, auto-refresh 15 s) :
+
+```bash
+TRADING_DB=data_store/trading.db uvicorn app.main:app --reload
+# -> http://localhost:8000/dashboard   (HTML)   ·   /docs (API)
+#    endpoints JSON : /metrics /trades /decisions /lessons /kill-switch
+```
+
 ## Données & courtiers — faut-il un compte ?
 
 **Pour voir ce que le bot sait faire : non, aucun compte.** Le paper trading a
@@ -203,10 +222,14 @@ Actions large-cap liquides, ETF (SPY/QQQ/IWM/TLT/GLD/XLF/XLK/XLE), crypto
   réel (1D + 1W resamplé), **persistance durable SQLite** (décisions/trades/
   leçons/métriques accumulées entre runs), scripts `fetch_data` / `run_paper
   --source`.
-- **Phase 2b :** SMC avancé (BOS/CHOCH, FVG, liquidity sweeps, Wyckoff —
-  faiblement pondérés), walk-forward complet, rapport HTML, PostgreSQL/Redis.
-- **Phase 3 :** News/Macro/Sentiment/On-chain ; exécution live-paper via Alpaca
-  paper + Binance testnet.
+- **Phase 3 — ✅ visualisation livrée :** rapport HTML autonome (SVG côté
+  serveur) + dashboard live FastAPI (`/dashboard`, auto-refresh) lisant la base
+  durable ; endpoints JSON métriques/trades/décisions/leçons.
+- **Phase 3b :** exécution **live-paper** via Alpaca paper + Binance testnet,
+  boucle temps réel (APScheduler).
+- **Phase 4 :** walk-forward complet, SMC avancé (BOS/CHOCH, FVG, liquidity
+  sweeps, Wyckoff — faiblement pondérés), premiers modèles ML (XGBoost) en
+  proposeurs ; News/Macro/Sentiment/On-chain ; PostgreSQL/Redis.
 - **Phase 4 :** ML (XGBoost/LightGBM/CatBoost) puis Deep Learning (LSTM/TFT/TCN),
   toujours en *proposeurs*, jamais décideurs seuls.
 - **Phase 5 :** live trading — désactivé par défaut, déverrouillage manuel, après
