@@ -263,8 +263,22 @@ Actions large-cap liquides, ETF (SPY/QQQ/IWM/TLT/GLD/XLF/XLK/XLE), crypto
   Monte Carlo), agent **SMC** (BOS/CHOCH, FVG, liquidity sweeps — faiblement
   pondéré), agent **ML proposeur** (régression logistique numpy, XGBoost/sklearn
   auto-détectés ; advisory only).
-- **Phase 4b :** Wyckoff, News/Macro/Sentiment/On-chain, PostgreSQL/Redis,
-  Grafana/Prometheus.
+- **Phase 5 — ✅ livrée :** persistance **PostgreSQL** (même interface que
+  SQLite, `make_store`), monitoring **Prometheus/Grafana** (endpoint
+  `/prometheus`, compose + dashboards), agents **Macro** (breadth Risk-On/Off,
+  par défaut), **News** et **Social sentiment** (opt-in `include_external`,
+  feeds injectables, contrarian damping euphorie/panique).
+- **Phase 6+ :** voir `PROJECT.md` §6 « Vers le bot ultime » (Wyckoff, On-chain,
+  Deep Learning, optimisation de portefeuille, exécution réaliste, MLflow…).
+
+### Agents externes (Macro / News / Social)
+
+`Macro` tourne par défaut (signal de **breadth** de marché injecté par le
+pipeline). `News` et `Social` s'activent via `build_agents(include_external=True)`
+et lisent des scores injectés ; sans flux connecté ils **s'abstiennent** (neutre)
+plutôt que d'inventer un signal. Brancher un vrai flux = sous-classer
+`SignalProvider` (FRED pour macro, API news, Reddit/X) et le passer au pipeline
+(`news_provider=`, `sentiment_provider=`). Voir `PROJECT.md`.
 
 ### Affiner l'intelligence
 

@@ -10,18 +10,22 @@ dispose. This separation is structural, not a convention.
 """
 
 from app.agents.base import AnalyticAgent, vote_from_score
+from app.agents.macro_agent import MacroAgent
 from app.agents.ml_agent import MLAgent
 from app.agents.momentum_agent import MomentumAgent
+from app.agents.news_agent import NewsAgent
 from app.agents.quant_agent import QuantAgent
 from app.agents.regime_agent import RegimeAgent
 from app.agents.smc_agent import SMCAgent
+from app.agents.social_agent import SocialSentimentAgent
 from app.agents.structure_agent import MarketStructureAgent
 from app.agents.trend_agent import TrendAgent
 from app.agents.volatility_agent import VolatilityAgent
 from app.agents.volume_agent import VolumeAgent
 
-# SMC is cheap and deterministic -> on by default (low-weighted). ML trains a
-# model each call, so it is opt-in via build_agents(include_ml=True).
+# SMC + Macro are cheap and deterministic -> on by default (low-weighted).
+# Macro uses market breadth (injected by the pipeline). ML trains a model each
+# call (opt-in). News/Social need external feeds (opt-in via include_external).
 DEFAULT_ANALYTIC_AGENTS: list[AnalyticAgent] = [
     TrendAgent(),
     MomentumAgent(),
@@ -31,13 +35,21 @@ DEFAULT_ANALYTIC_AGENTS: list[AnalyticAgent] = [
     MarketStructureAgent(),
     QuantAgent(),
     SMCAgent(),
+    MacroAgent(),
 ]
 
 
-def build_agents(include_ml: bool = False, include_smc: bool = True) -> list[AnalyticAgent]:
+def build_agents(
+    include_ml: bool = False,
+    include_smc: bool = True,
+    include_macro: bool = True,
+    include_external: bool = False,
+) -> list[AnalyticAgent]:
     """Assemble the analytic agent roster.
 
-    ML is advisory and comparatively expensive (trains per cycle), hence opt-in.
+    * ML is advisory and expensive (trains per cycle) -> opt-in.
+    * News/Social need external feeds; without one they abstain, so they are
+      opt-in via ``include_external`` to keep the default roster lean.
     """
     agents: list[AnalyticAgent] = [
         TrendAgent(), MomentumAgent(), VolatilityAgent(), RegimeAgent(),
@@ -45,6 +57,10 @@ def build_agents(include_ml: bool = False, include_smc: bool = True) -> list[Ana
     ]
     if include_smc:
         agents.append(SMCAgent())
+    if include_macro:
+        agents.append(MacroAgent())
+    if include_external:
+        agents.extend([NewsAgent(), SocialSentimentAgent()])
     if include_ml:
         agents.append(MLAgent())
     return agents
@@ -61,6 +77,9 @@ __all__ = [
     "MarketStructureAgent",
     "QuantAgent",
     "SMCAgent",
+    "MacroAgent",
+    "NewsAgent",
+    "SocialSentimentAgent",
     "MLAgent",
     "DEFAULT_ANALYTIC_AGENTS",
     "build_agents",

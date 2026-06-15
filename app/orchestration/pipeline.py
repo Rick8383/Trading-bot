@@ -50,6 +50,8 @@ class DecisionPipeline:
         cio: CIOAgent,
         knowledge_base: KnowledgeBase | None = None,
         audit=None,
+        news_provider=None,
+        sentiment_provider=None,
     ):
         self.s = settings
         self.agents = agents
@@ -57,6 +59,43 @@ class DecisionPipeline:
         self.cio = cio
         self.kb = knowledge_base
         self.audit = audit
+        self.news_provider = news_provider
+        self.sentiment_provider = sentiment_provider
+
+    @staticmethod
+    def _macro_breadth(daily: dict[str, pd.DataFrame]) -> tuple[float, float | None]:
+        """Risk-On/Off proxy from market breadth: fraction of names > EMA50.
+
+        Returns (macro_score in [-100,100], breadth fraction) or (0, None) if the
+        universe is too small to be meaningful (single-asset runs).
+        """
+        ups, total = 0, 0
+        for df in daily.values():
+            if len(df) < 50 or "ema50" not in df:
+                continue
+            last = df.iloc[-1]
+            if pd.isna(last.get("ema50")):
+                continue
+            total += 1
+            if last["close"] > last["ema50"]:
+                ups += 1
+        if total < 3:
+            return 0.0, None
+        breadth = ups / total
+        return float((breadth - 0.5) * 200), breadth   # 0%->-100, 100%->+100
+
+    @staticmethod
+    def _collect(provider, symbols) -> dict[str, float]:
+        if provider is None:
+            return {}
+        out: dict[str, float] = {}
+        for sym in symbols:
+            try:
+                score, _, _ = provider.score(sym)
+                out[sym] = score
+            except Exception:  # noqa: BLE001
+                continue
+        return out
 
     def run_cycle(
         self,
@@ -66,10 +105,21 @@ class DecisionPipeline:
         # Step 2: cross-sectional relative strength (needs the whole universe).
         daily = {sym: tf["1D"] for sym, tf in frames.items() if "1D" in tf}
         rs = relative_strength(lookback_returns(daily))
+        macro_score, breadth = self._macro_breadth(daily)
+
+        # Optional external feeds (news/social). Default: no feed -> neutral.
+        news = self._collect(self.news_provider, daily.keys())
+        sentiment = self._collect(self.sentiment_provider, daily.keys())
 
         decisions: list[FinalDecision] = []
         for symbol, tf_frames in frames.items():
-            ctx = {"relative_strength": rs.get(symbol, 0.0)}
+            ctx = {
+                "relative_strength": rs.get(symbol, 0.0),
+                "macro_score": macro_score,
+                "breadth": breadth,
+                "news": news,
+                "sentiment": sentiment,
+            }
             data = {**tf_frames, "_context": ctx}
 
             # Step 3: analytic agents -> votes.
