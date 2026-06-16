@@ -159,6 +159,7 @@ class DecisionPipeline:
             idea = self.cio.form_idea(
                 asset=symbol, agg=agg, regime=regime, last_price=last_price,
                 atr=atr if not pd.isna(atr) else 0.0, risk_params=rp, learned_penalties=penalties,
+                df=df1d,
             )
             if idea is None:
                 decision = FinalDecision(

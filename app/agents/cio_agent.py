@@ -21,7 +21,7 @@ from app.decision.adaptive_risk import RiskParams
 from app.decision.expected_value import evaluate
 from app.models import FinalDecision, RegimeAssessment, TradeIdea
 from app.risk.position_sizing import calculate_position_size, position_weight
-from app.risk.stop_manager import atr_stop, take_profit
+from app.risk.stop_manager import atr_stop, structure_stop, structure_target, take_profit
 from app.scoring.vote_engine import AggregatedVotes
 
 
@@ -41,6 +41,7 @@ class CIOAgent:
         atr: float,
         risk_params: RiskParams,
         learned_penalties: dict[str, float] | None = None,
+        df=None,
     ) -> TradeIdea | None:
         learned_penalties = learned_penalties or {}
 
@@ -80,11 +81,19 @@ class CIOAgent:
         if conviction < self.s.conviction.flat_below:
             return None
 
-        # 5) Build levels from ATR. Missing/zero ATR -> cannot define risk.
+        # 5) Build levels. Missing/zero ATR -> cannot define risk.
         if atr <= 0 or last_price <= 0:
             return None
-        stop = atr_stop(last_price, atr, action, self.s.strategy.atr_stop_multiplier)
-        target = take_profit(last_price, stop, action, max(self.s.risk.min_rr, 2.0))
+        mult = self.s.strategy.atr_stop_multiplier
+        min_rr = max(self.s.risk.min_rr, 2.0)
+        if self.s.strategy.structure_stops and df is not None and len(df) >= 40:
+            # Stop just beyond the nearest support/resistance (ATR-bounded);
+            # target at the next opposing level when it clears min RR.
+            stop = structure_stop(df, last_price, atr, action, mult)
+            target = structure_target(df, last_price, stop, action, min_rr)
+        else:
+            stop = atr_stop(last_price, atr, action, mult)
+            target = take_profit(last_price, stop, action, min_rr)
 
         # 6) Win probability from conviction (deliberately conservative band).
         win_prob = float(np.clip(0.40 + conviction / 100 * 0.25, 0.40, 0.68))

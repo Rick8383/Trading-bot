@@ -68,6 +68,7 @@ class StrategyConfig(BaseModel):
     atr_stop_multiplier: float = 2.5
     adx_period: int = 14
     rsi_period: int = 14
+    structure_stops: bool = True   # place SL/TP at support/resistance (ATR-bounded)
 
 
 class CioWeights(BaseModel):

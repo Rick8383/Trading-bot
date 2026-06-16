@@ -47,6 +47,7 @@ strategy:
   atr_stop_multiplier: 2.5
   adx_period: 14
   rsi_period: 14
+  structure_stops: true   # place SL/TP at support/resistance & liquidity (ATR-bounded)
 
 # Weights for the CIO's weighted vote (must roughly sum to 1.0)
 cio_weights:
