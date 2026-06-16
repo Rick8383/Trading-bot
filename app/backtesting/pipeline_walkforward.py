@@ -82,6 +82,7 @@ def run_pipeline_walk_forward(
     history = _mixed_history(symbols, bars)
     windows: list[PipelineWindow] = []
     all_oos: list[float] = []
+    equity = [100_000.0]                  # stitched OOS equity across windows
 
     for tr, te in walk_forward_splits(bars, train, test):
         if tr.start < warmup:
@@ -101,19 +102,16 @@ def run_pipeline_walk_forward(
 
         res = _run_window(used, history, te.start, te.stop)
         all_oos.extend(res.trade_returns)
+        # Stitch this window's equity curve onto the running OOS curve
+        # (compounding window returns, NOT per-trade returns).
+        seg = res.equity_curve or [equity[-1]]
+        base, seg0 = equity[-1], seg[0] or 1.0
+        equity.extend(base * (v / seg0) for v in seg)
         windows.append(PipelineWindow(
             train=(tr.start, tr.stop), test=(te.start, te.stop), param=chosen,
             oos_return=res.report.total_return, oos_trades=res.report.n_trades,
             oos_sharpe=res.report.sharpe,
         ))
 
-    agg = compute_report([100_000.0] + [100_000.0 * (1 + r) for r in _cumulative(all_oos)], all_oos)
+    agg = compute_report(equity, all_oos)
     return PipelineWFReport(windows, all_oos, agg, param_name, grid or [])
-
-
-def _cumulative(returns: list[float]) -> list[float]:
-    out, cum = [], 1.0
-    for r in returns:
-        cum *= (1 + r)
-        out.append(cum - 1)
-    return out
