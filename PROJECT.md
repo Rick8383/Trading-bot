@@ -34,7 +34,8 @@ Trois règles **structurelles** (codées, pas seulement promises) :
 | 3b | **Live-paper** (Alpaca paper + Binance testnet), boucle temps réel | ✅ |
 | 4 | **Walk-forward OOS**, agent **SMC**, agent **ML proposeur** | ✅ |
 | 5 | **PostgreSQL** + **Prometheus/Grafana**, agents **Macro/News/Sentiment** | ✅ |
-| 6+ | Voir §6 « Vers le bot ultime » | 🔜 |
+| 6 | **SL/TP structure-aware** (S/R, liquidité, FVG), **sorties intelligentes** (scale-out, break-even, trailing, time-stop), **entrées pullback** (ordres limite), **walk-forward pipeline complet** | ✅ |
+| 7+ | Voir §6 « Vers le bot ultime » | 🔜 |
 
 **Tests : `pytest -q` (doit rester vert).** Le détail du nombre de tests évolue ;
 le filet de sécurité couvre indicateurs, décision, risque, exécution, agents,
@@ -90,7 +91,8 @@ python scripts/run_paper.py                 # paper offline (synthétique mixte)
 python scripts/run_paper.py --source crypto # vraies bougies crypto
 python scripts/run_paper.py --ml            # + agent ML
 python scripts/run_backtest.py              # backtest + Monte Carlo
-python scripts/run_walkforward.py           # robustesse hors-échantillon
+python scripts/run_walkforward.py           # robustesse OOS (EMA-cross)
+python scripts/run_walkforward.py --pipeline # robustesse OOS du pipeline COMPLET
 python scripts/run_live.py --cycles 3       # boucle temps réel (paper)
 
 TRADING_DB=data_store/trading.db uvicorn app.main:app --reload
@@ -180,7 +182,7 @@ le risque de se tromper ou améliore la robustesse.
 4. Filtres d'univers réels (volume, spread, capitalisation, liquidité).
 
 **B. Robustesse statistique**
-5. Walk-forward sur le **pipeline complet** (pas que l'EMA-cross).
+5. ✅ Walk-forward sur le **pipeline complet** (`run_walkforward.py --pipeline`).
 6. Validation croisée par régime + tests de stress (2008, 2020, 2022).
 7. Purged/embargoed CV pour éviter les fuites temporelles côté ML.
 8. Contrôle du sur-apprentissage (deflated Sharpe, PBO).
@@ -191,6 +193,11 @@ le risque de se tromper ou améliore la robustesse.
 11. Deep Learning (LSTM/TFT/TCN) en proposeurs, calibrés et monitorés (drift).
 12. Méta-modèle d'ensemble + calibration des probabilités (isotonic/Platt).
 13. Sélection d'agents adaptative : désactiver un agent qui se dégrade.
+
+> ✅ **Déjà livré (Phase 6) :** stops/cibles aux niveaux de structure (S/R,
+> liquidité, FVG), sorties intelligentes (scale-out, break-even, trailing,
+> time-stop), entrées sur pullback (ordres limite), walk-forward du pipeline
+> complet.
 
 **D. Portefeuille & risque**
 14. Optimisation de portefeuille (risk parity, corrélations, secteurs).

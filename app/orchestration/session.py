@@ -143,9 +143,11 @@ class PaperTradingSession:
         return out
 
     # --- main loop -----------------------------------------------------
-    def run(self, warmup: int = 220) -> SessionResult:
+    def run(self, warmup: int = 220, end: int | None = None) -> SessionResult:
         symbols = list(self.history.keys())
         n = min(len(df) for df in self.history.values())
+        if end is not None:
+            n = min(n, end)
         equity_curve: list[float] = []
         decisions_count = 0
         executed = 0

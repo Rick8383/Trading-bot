@@ -24,7 +24,31 @@ def main() -> None:
     ap.add_argument("--bars", type=int, default=1200)
     ap.add_argument("--train", type=int, default=252)
     ap.add_argument("--test", type=int, default=63)
+    ap.add_argument("--pipeline", action="store_true",
+                    help="walk-forward the FULL decision pipeline (not just EMA-cross)")
     args = ap.parse_args()
+
+    if args.pipeline:
+        from app.core.config import load_config
+        from app.backtesting.pipeline_walkforward import run_pipeline_walk_forward
+        symbols = [f"SYM{i}" for i in range(6)]
+        wf = run_pipeline_walk_forward(
+            load_config(), symbols, bars=max(args.bars, 600), train=args.train, test=args.test,
+            param_name="min_rr", grid=[2.0, 2.5, 3.0],
+        )
+        print(f"Full-pipeline walk-forward OOS | {len(wf.windows)} windows | param={wf.param_name}")
+        print("=" * 64)
+        for w in wf.windows:
+            print(f"  test[{w.test[0]:4d}:{w.test[1]:4d}] min_rr={w.param} -> "
+                  f"OOS {w.oos_return:+.2%} (Sharpe {w.oos_sharpe:.2f}, {w.oos_trades} trades)")
+        r = wf.oos_report
+        print("=" * 64)
+        print(f"OOS total return : {r.total_return:+.2%}")
+        print(f"OOS Sharpe       : {r.sharpe:.2f}")
+        print(f"OOS max drawdown : {r.max_drawdown:.2%}")
+        print(f"OOS profit factor: {r.profit_factor:.2f}  | win rate {r.win_rate:.0%} | {r.n_trades} trades")
+        print("\nNote: each test window is traded by a fresh session on unseen data.")
+        return
 
     if args.source == "synthetic":
         df = synthetic_ohlcv(args.symbol, SyntheticConfig(bars=args.bars, drift=0.0005, volatility=0.014))
