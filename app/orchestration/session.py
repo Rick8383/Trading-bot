@@ -190,6 +190,7 @@ class PaperTradingSession:
             marks_next = {s: float(self.history[s]["close"].iloc[t]) for s in frames}
             atrs = {s: float(frames[s]["1D"]["atr"].iloc[-1]) for s in frames
                     if not pd.isna(frames[s]["1D"]["atr"].iloc[-1])}
+            self.broker.process_pending(marks_next)   # fill reached pullback limits
             self._manage_exits(marks_next, atrs)
             self._settle_closes(self.broker.mark_to_market(marks_next))
             equity_curve.append(self.broker.equity(marks_next))
@@ -223,18 +224,23 @@ class PaperTradingSession:
 
     def _execute(self, decisions: list[FinalDecision]) -> int:
         count = 0
+        pending_syms = {p.order.symbol for p in self.broker.pending}
         for d in decisions:
             if d.rejected or d.action == Action.FLAT or d.quantity <= 0:
                 continue
-            if d.asset in self.broker.positions:
-                continue  # already hold this name
+            if d.asset in self.broker.positions or d.asset in pending_syms:
+                continue  # already hold or have a working order for this name
             order = Order(
                 symbol=d.asset, action=d.action, quantity=d.quantity,
                 entry=d.entry, stop_loss=d.stop_loss, take_profit=d.take_profit,
                 leverage=1.0,
             )
             try:
-                self.broker.submit(order, decision_ref=d.asset)
+                if d.pending:
+                    self.broker.submit_limit(order, d.entry, self.settings.entries.expiry_bars,
+                                             decision_ref=d.asset)
+                else:
+                    self.broker.submit(order, decision_ref=d.asset)
                 self._open_context[d.asset] = d
                 count += 1
             except (ValueError, Exception):

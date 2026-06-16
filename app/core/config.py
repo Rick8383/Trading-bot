@@ -86,6 +86,17 @@ class ExecutionConfig(BaseModel):
     commission_bps: float = 2
 
 
+class EntryConfig(BaseModel):
+    """Entry timing. 'pullback' uses a limit order at the zone when price is
+    extended; 'market' enters immediately at the current price."""
+
+    enabled: bool = True
+    mode: str = "pullback"            # pullback | market
+    max_extension_atr: float = 1.5    # 'extended' if price > EMA20 + N*ATR (long)
+    pullback_buffer_atr: float = 0.1  # limit sits this far above the EMA20 zone
+    expiry_bars: int = 5              # cancel the limit if unfilled after N bars
+
+
 class ExitConfig(BaseModel):
     """Active trade management. All thresholds are in R (risk) multiples."""
 
@@ -137,6 +148,7 @@ class Settings(BaseModel):
     strategy: StrategyConfig = StrategyConfig()
     cio_weights: CioWeights = CioWeights()
     execution: ExecutionConfig = ExecutionConfig()
+    entries: EntryConfig = EntryConfig()
     exits: ExitConfig = ExitConfig()
     universe: UniverseConfig = UniverseConfig()
     learning: LearningConfig = LearningConfig()

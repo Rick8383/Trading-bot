@@ -80,6 +80,14 @@ class OpenPosition:
 
 
 @dataclass
+class PendingOrder:
+    order: Order
+    limit_price: float
+    bars_left: int
+    decision_ref: str | None = None
+
+
+@dataclass
 class ClosedTrade:
     symbol: str
     action: Action
@@ -101,6 +109,7 @@ class PaperBroker:
     commission_bps: float = 2
     max_leverage: float = 1.0
     positions: dict[str, OpenPosition] = field(default_factory=dict)
+    pending: list[PendingOrder] = field(default_factory=list)
     fills: list[Fill] = field(default_factory=list)
     closed: list[ClosedTrade] = field(default_factory=list)
     _start_equity: float = field(default=0.0)
@@ -169,6 +178,36 @@ class PaperBroker:
         )
         self.closed.append(trade)
         return trade
+
+    def submit_limit(self, order: Order, limit_price: float, expiry_bars: int,
+                     decision_ref: str | None = None) -> PendingOrder:
+        """Queue a limit order (validated now, filled when price reaches the level)."""
+        validate(order, self.max_leverage)
+        po = PendingOrder(order, limit_price, max(1, expiry_bars), decision_ref)
+        self.pending.append(po)
+        return po
+
+    def process_pending(self, marks: dict[str, float]) -> list[Fill]:
+        """Fill limit orders whose level has been reached; expire stale ones."""
+        fills: list[Fill] = []
+        for po in list(self.pending):
+            price = marks.get(po.order.symbol)
+            if price is None:
+                continue
+            reached = (po.order.action == Action.LONG and price <= po.limit_price) or \
+                      (po.order.action == Action.SHORT and price >= po.limit_price)
+            if reached and po.order.symbol not in self.positions:
+                po.order.entry = po.limit_price          # fill at the limit level
+                try:
+                    fills.append(self.submit(po.order, po.decision_ref))
+                except ValueError:
+                    pass                                  # insufficient cash -> drop
+                self.pending.remove(po)
+                continue
+            po.bars_left -= 1
+            if po.bars_left <= 0:
+                self.pending.remove(po)                   # expired unfilled
+        return fills
 
     def partial_close(self, symbol: str, fraction: float, price: float,
                       reason: str = "scale_out") -> ClosedTrade | None:

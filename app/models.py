@@ -68,6 +68,7 @@ class TradeIdea(BaseModel):
     expected_value: float = 0.0
     reward_risk: float = 0.0
     win_probability: float = Field(ge=0, le=1, default=0.5)
+    pending: bool = False                # True if entry is a pullback limit order
     votes: list[AgentVote] = Field(default_factory=list)
 
 
@@ -84,6 +85,7 @@ class FinalDecision(BaseModel):
     take_profit: float | None = None
     expected_value: float = 0.0
     reward_risk: float = 0.0
+    pending: bool = False                # entry is a pending pullback limit order
     rejected: bool = False
     rejection_reason: str | None = None
     regime: MarketRegime | None = None

@@ -100,23 +100,31 @@ class RealtimeRunner:
             for d in decisions:
                 self.store.save_decision(d)
 
+        is_paper = isinstance(self.broker, PaperBroker)
+        pending_syms = {p.order.symbol for p in self.broker.pending} if is_paper else set()
         for d in decisions:
             if d.rejected or d.action == Action.FLAT or d.quantity <= 0:
                 continue
-            if isinstance(self.broker, PaperBroker) and d.asset in self.broker.positions:
+            if is_paper and (d.asset in self.broker.positions or d.asset in pending_syms):
                 continue
             order = Order(symbol=d.asset, action=d.action, quantity=d.quantity,
                           entry=d.entry, stop_loss=d.stop_loss, take_profit=d.take_profit, leverage=1.0)
             try:
-                self.broker.submit(order, decision_ref=d.asset)
+                # Pullback limit orders are paper-only for now (live adapters are
+                # market-order venues); live enters at market.
+                if d.pending and is_paper:
+                    self.broker.submit_limit(order, d.entry, self.settings.entries.expiry_bars, decision_ref=d.asset)
+                else:
+                    self.broker.submit(order, decision_ref=d.asset)
                 self._open_context[d.asset] = d
             except Exception as exc:  # noqa: BLE001
                 _log.warning("submit_failed", symbol=d.asset, error=str(exc)[:120]) if hasattr(_log, "warning") else None
 
-        # Paper broker: active exit management, then settle stops/targets.
-        if isinstance(self.broker, PaperBroker):
+        # Paper broker: fill pending limits, manage exits, settle stops/targets.
+        if is_paper:
             atrs = {s: float(tf["1D"]["atr"].iloc[-1]) for s, tf in frames.items()
                     if not pd.isna(tf["1D"]["atr"].iloc[-1])}
+            self.broker.process_pending(marks)
             policy = self.settings.exits
             if policy.enabled:
                 for pos in list(self.broker.positions.values()):

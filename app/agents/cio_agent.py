@@ -86,19 +86,23 @@ class CIOAgent:
             return None
         mult = self.s.strategy.atr_stop_multiplier
         min_rr = max(self.s.risk.min_rr, 2.0)
+
+        # 5a) Entry timing: market, or a pullback limit when price is extended.
+        entry_price, pending = self._entry_price(df, last_price, atr, action)
+
         if self.s.strategy.structure_stops and df is not None and len(df) >= 40:
             # Stop just beyond the nearest support/resistance (ATR-bounded);
             # target at the next opposing level when it clears min RR.
-            stop = structure_stop(df, last_price, atr, action, mult)
-            target = structure_target(df, last_price, stop, action, min_rr)
+            stop = structure_stop(df, entry_price, atr, action, mult)
+            target = structure_target(df, entry_price, stop, action, min_rr)
         else:
-            stop = atr_stop(last_price, atr, action, mult)
-            target = take_profit(last_price, stop, action, min_rr)
+            stop = atr_stop(entry_price, atr, action, mult)
+            target = take_profit(entry_price, stop, action, min_rr)
 
         # 6) Win probability from conviction (deliberately conservative band).
         win_prob = float(np.clip(0.40 + conviction / 100 * 0.25, 0.40, 0.68))
         ev = evaluate(
-            win_prob=win_prob, entry=last_price, stop=stop, target=target, min_rr=self.s.risk.min_rr
+            win_prob=win_prob, entry=entry_price, stop=stop, target=target, min_rr=self.s.risk.min_rr
         )
         if not ev.accept:
             return None
@@ -107,12 +111,13 @@ class CIOAgent:
             asset=asset,
             action=action,
             conviction=conviction,
-            entry=last_price,
+            entry=entry_price,
             stop_loss=stop,
             take_profit=target,
             expected_value=ev.expected_value,
             reward_risk=ev.reward_risk,
             win_probability=win_prob,
+            pending=pending,
             votes=agg.per_agent,
         )
         return idea
@@ -157,9 +162,38 @@ class CIOAgent:
             take_profit=idea.take_profit,
             expected_value=idea.expected_value,
             reward_risk=idea.reward_risk,
+            pending=idea.pending,
             rejected=False,
             regime=regime.regime,
             consulted_agents=consulted,
             risk_flags=sorted({f for vt in idea.votes for f in vt.risk_flags}),
             learned_penalties=learned_penalties,
         )
+
+    def _entry_price(self, df, last_price: float, atr: float, action: Action) -> tuple[float, bool]:
+        """Market entry, or a pullback limit when price is extended from EMA20.
+
+        Returns (entry_price, pending). A pullback limit improves reward/risk by
+        entering nearer the zone, but only when price is meaningfully extended;
+        otherwise we enter at market to avoid missing the move.
+        """
+        cfg = self.s.entries
+        if (not cfg.enabled) or cfg.mode != "pullback" or df is None or "ema20" not in df:
+            return last_price, False
+        import pandas as pd
+
+        ema20 = df["ema20"].iloc[-1]
+        if pd.isna(ema20):
+            return last_price, False
+
+        if action == Action.LONG:
+            extended = last_price > ema20 + cfg.max_extension_atr * atr
+            limit = ema20 + cfg.pullback_buffer_atr * atr
+            if extended and limit < last_price:
+                return float(limit), True
+        elif action == Action.SHORT:
+            extended = last_price < ema20 - cfg.max_extension_atr * atr
+            limit = ema20 - cfg.pullback_buffer_atr * atr
+            if extended and limit > last_price:
+                return float(limit), True
+        return last_price, False

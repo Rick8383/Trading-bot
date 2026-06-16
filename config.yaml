@@ -63,6 +63,14 @@ execution:
   slippage_bps: 5
   commission_bps: 2
 
+# Entry timing. 'pullback' enters via a limit order at the zone when extended.
+entries:
+  enabled: true
+  mode: pullback           # pullback | market
+  max_extension_atr: 1.5   # 'extended' if price > EMA20 + N*ATR (long)
+  pullback_buffer_atr: 0.1
+  expiry_bars: 5           # cancel the limit if unfilled after N bars
+
 # Active trade management (smart exits). Thresholds in R (risk) multiples.
 exits:
   enabled: true
