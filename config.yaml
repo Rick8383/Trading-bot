@@ -63,6 +63,17 @@ execution:
   slippage_bps: 5
   commission_bps: 2
 
+# Active trade management (smart exits). Thresholds in R (risk) multiples.
+exits:
+  enabled: true
+  scale_out_at_r: 1.0       # take partial profit at +1R
+  scale_out_fraction: 0.5   # close half there
+  breakeven_at_r: 1.0       # move stop to entry at +1R (free trade)
+  trail_after_r: 1.0        # trail behind price beyond +1R
+  trail_atr_mult: 2.5
+  time_stop_bars: 25        # cut a stagnating trade after N bars...
+  time_stop_min_r: 0.5      # ...if it hasn't reached this much R
+
 universe:
   etfs: [SPY, QQQ, IWM, TLT, GLD, XLF, XLK, XLE]
   equities: [AAPL, MSFT, NVDA, AMZN, GOOGL]

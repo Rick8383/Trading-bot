@@ -86,6 +86,19 @@ class ExecutionConfig(BaseModel):
     commission_bps: float = 2
 
 
+class ExitConfig(BaseModel):
+    """Active trade management. All thresholds are in R (risk) multiples."""
+
+    enabled: bool = True
+    scale_out_at_r: float = 1.0       # take partial profit at +1R
+    scale_out_fraction: float = 0.5   # close half at the first target
+    breakeven_at_r: float = 1.0       # move stop to entry once +1R is reached
+    trail_after_r: float = 1.0        # start trailing once beyond +1R
+    trail_atr_mult: float = 2.5
+    time_stop_bars: int = 25          # cut a stagnating trade after N bars
+    time_stop_min_r: float = 0.5      # ...if it has not reached this much R
+
+
 class UniverseFilters(BaseModel):
     min_daily_volume: float = 0
     max_spread_bps: float = 100
@@ -124,6 +137,7 @@ class Settings(BaseModel):
     strategy: StrategyConfig = StrategyConfig()
     cio_weights: CioWeights = CioWeights()
     execution: ExecutionConfig = ExecutionConfig()
+    exits: ExitConfig = ExitConfig()
     universe: UniverseConfig = UniverseConfig()
     learning: LearningConfig = LearningConfig()
     monitoring: MonitoringConfig = MonitoringConfig()

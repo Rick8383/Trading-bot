@@ -25,6 +25,7 @@ from app.data import indicators as ind
 from app.data.market_data import MarketDataProvider, SyntheticConfig, synthetic_ohlcv
 from app.data.providers import resample_ohlcv
 from app.decision.exposure import Position
+from app.execution.exit_manager import manage_position
 from app.execution.order_validator import Order
 from app.execution.paper_broker import PaperBroker
 from app.learning.improvement_engine import propose_improvements
@@ -187,6 +188,9 @@ class PaperTradingSession:
 
             # Mark-to-market against the new bar; learn from any closes.
             marks_next = {s: float(self.history[s]["close"].iloc[t]) for s in frames}
+            atrs = {s: float(frames[s]["1D"]["atr"].iloc[-1]) for s in frames
+                    if not pd.isna(frames[s]["1D"]["atr"].iloc[-1])}
+            self._manage_exits(marks_next, atrs)
             self._settle_closes(self.broker.mark_to_market(marks_next))
             equity_curve.append(self.broker.equity(marks_next))
 
@@ -237,11 +241,31 @@ class PaperTradingSession:
                 continue  # insufficient cash / validation -> skip silently, stay safe
         return count
 
+    def _manage_exits(self, marks: dict[str, float], atrs: dict[str, float]) -> None:
+        policy = self.settings.exits
+        if not policy.enabled:
+            return
+        for pos in list(self.broker.positions.values()):
+            pos.bars_held += 1
+        for symbol in list(self.broker.positions.keys()):
+            price = marks.get(symbol)
+            if price is None:
+                continue
+            pos = self.broker.positions.get(symbol)
+            if pos is None:
+                continue
+            produced = manage_position(self.broker, pos, price, atrs.get(symbol, 0.0), policy)
+            self._settle_closes(produced)
+
     def _settle_closes(self, closed_trades) -> None:
         for trade in closed_trades:
             if trade is None:
                 continue
-            ctx = self._open_context.pop(trade.symbol, None)
+            # Keep context for runners (partial scale-outs): only drop it once
+            # the position is fully closed.
+            still_open = trade.symbol in self.broker.positions
+            ctx = (self._open_context.get(trade.symbol) if still_open
+                   else self._open_context.pop(trade.symbol, None))
             rec = TradeRecord(
                 symbol=trade.symbol, action=trade.action.value, entry=trade.entry, exit=trade.exit,
                 stop_loss=ctx.stop_loss if ctx else trade.entry, take_profit=ctx.take_profit if ctx else None,

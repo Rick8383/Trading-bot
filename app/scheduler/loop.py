@@ -23,6 +23,7 @@ from app.data import indicators as ind
 from app.data.market_data import MarketDataProvider
 from app.data.providers import resample_ohlcv
 from app.decision.exposure import Position
+from app.execution.exit_manager import manage_position
 from app.execution.order_validator import Order
 from app.execution.paper_broker import PaperBroker
 from app.learning.knowledge_base import KnowledgeBase
@@ -112,8 +113,20 @@ class RealtimeRunner:
             except Exception as exc:  # noqa: BLE001
                 _log.warning("submit_failed", symbol=d.asset, error=str(exc)[:120]) if hasattr(_log, "warning") else None
 
-        # Paper broker: settle stops/targets and learn from closes.
+        # Paper broker: active exit management, then settle stops/targets.
         if isinstance(self.broker, PaperBroker):
+            atrs = {s: float(tf["1D"]["atr"].iloc[-1]) for s, tf in frames.items()
+                    if not pd.isna(tf["1D"]["atr"].iloc[-1])}
+            policy = self.settings.exits
+            if policy.enabled:
+                for pos in list(self.broker.positions.values()):
+                    pos.bars_held += 1
+                for symbol in list(self.broker.positions.keys()):
+                    pos = self.broker.positions.get(symbol)
+                    if pos is None:
+                        continue
+                    for trade in manage_position(self.broker, pos, marks[symbol], atrs.get(symbol, 0.0), policy):
+                        self._learn(trade)
             for trade in self.broker.mark_to_market(marks):
                 self._learn(trade)
         return decisions
@@ -121,7 +134,9 @@ class RealtimeRunner:
     def _learn(self, trade) -> None:
         if trade is None:
             return
-        ctx = self._open_context.pop(trade.symbol, None)
+        still_open = trade.symbol in self.broker.positions
+        ctx = (self._open_context.get(trade.symbol) if still_open
+               else self._open_context.pop(trade.symbol, None))
         rec = TradeRecord(
             symbol=trade.symbol, action=trade.action.value, entry=trade.entry, exit=trade.exit,
             stop_loss=ctx.stop_loss if ctx else trade.entry, take_profit=ctx.take_profit if ctx else None,

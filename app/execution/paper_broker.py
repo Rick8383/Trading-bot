@@ -44,6 +44,29 @@ class OpenPosition:
     stop_loss: float
     take_profit: float | None
     opened_at: datetime
+    initial_stop: float = 0.0          # for R-multiple math (set on open)
+    original_quantity: float = 0.0
+    bars_held: int = 0
+    moved_to_breakeven: bool = False
+    scaled_out: bool = False
+
+    def __post_init__(self) -> None:
+        if self.initial_stop == 0.0:
+            self.initial_stop = self.stop_loss
+        if self.original_quantity == 0.0:
+            self.original_quantity = self.quantity
+
+    @property
+    def risk_per_unit(self) -> float:
+        return abs(self.entry - self.initial_stop)
+
+    def r_multiple(self, price: float) -> float:
+        """Open profit expressed in R (initial risk per unit)."""
+        rpu = self.risk_per_unit
+        if rpu <= 0:
+            return 0.0
+        direction = 1 if self.action == Action.LONG else -1
+        return (price - self.entry) * direction / rpu
 
     def unrealized(self, price: float) -> float:
         direction = 1 if self.action == Action.LONG else -1
@@ -145,6 +168,35 @@ class PaperBroker:
             closed_at=datetime.now(timezone.utc), reason=reason,
         )
         self.closed.append(trade)
+        return trade
+
+    def partial_close(self, symbol: str, fraction: float, price: float,
+                      reason: str = "scale_out") -> ClosedTrade | None:
+        """Close ``fraction`` of a position, leaving the rest open (a runner)."""
+        pos = self.positions.get(symbol)
+        if pos is None:
+            return None
+        fraction = max(0.0, min(1.0, fraction))
+        qty = pos.quantity * fraction
+        if qty <= 0:
+            return None
+        exit_action = Action.SHORT if pos.action == Action.LONG else Action.LONG
+        fill_price, comm_frac = apply_costs(price, exit_action, self.slippage_bps, self.commission_bps)
+        notional = fill_price * qty
+        commission = notional * comm_frac
+        direction = 1 if pos.action == Action.LONG else -1
+        pnl = (fill_price - pos.entry) * qty * direction - commission
+        self.cash += (notional - commission) if pos.action == Action.LONG else pnl
+
+        pos.quantity -= qty
+        pos.scaled_out = True
+        ret = pnl / (pos.entry * qty) if qty else 0.0
+        trade = ClosedTrade(symbol=symbol, action=pos.action, quantity=qty, entry=pos.entry,
+                            exit=fill_price, pnl=pnl, return_pct=ret, opened_at=pos.opened_at,
+                            closed_at=datetime.now(timezone.utc), reason=reason)
+        self.closed.append(trade)
+        if pos.quantity <= 1e-9:
+            self.positions.pop(symbol, None)
         return trade
 
     def mark_to_market(self, marks: dict[str, float]) -> list[ClosedTrade]:
