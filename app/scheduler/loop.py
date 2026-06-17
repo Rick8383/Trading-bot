@@ -30,6 +30,7 @@ from app.learning.knowledge_base import KnowledgeBase
 from app.learning.postmortem import post_mortem
 from app.learning.trade_journal import TradeJournal, TradeRecord
 from app.orchestration.pipeline import DecisionPipeline, PortfolioState
+from app.monitoring.metrics import compute_report
 from app.risk.drawdown_guard import DrawdownGuard
 from app.risk.risk_manager import RiskManager
 
@@ -60,6 +61,7 @@ class RealtimeRunner:
         )
         self._open_context: dict = {}
         self._consecutive_losses = 0
+        self._equity_curve: list[float] = [self.settings.capital.initial]
 
     # --- one cycle -----------------------------------------------------
     def _frames(self) -> dict[str, dict[str, pd.DataFrame]]:
@@ -147,7 +149,29 @@ class RealtimeRunner:
                         self._learn(trade)
             for trade in self.broker.mark_to_market(marks):
                 self._learn(trade)
+        self._snapshot_metrics(marks)
         return decisions
+
+    def _snapshot_metrics(self, marks: dict[str, float]) -> None:
+        """Persist an equity/KPI snapshot so the dashboard reflects activity even
+        when the bot stays flat. Without this the live loop never populated the
+        metrics table and the dashboard looked frozen."""
+        if not self.store:
+            return
+        try:
+            equity = self.broker.equity(marks)
+        except Exception:  # noqa: BLE001 - live adapter may need no marks
+            try:
+                equity = self.broker.equity(None)
+            except Exception:  # noqa: BLE001
+                return
+        self.guard.update(equity)
+        self._equity_curve.append(equity)
+        trade_returns = [c.return_pct for c in getattr(self.broker, "closed", [])]
+        report = compute_report(self._equity_curve, trade_returns)
+        self.store.save_metric(equity, self.guard.drawdown, report)
+        if self.kb is not None:
+            self.store.upsert_lessons(self.kb.lessons)
 
     def _learn(self, trade) -> None:
         if trade is None:

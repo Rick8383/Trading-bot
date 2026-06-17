@@ -47,3 +47,18 @@ def test_runner_intraday_timeframe_runs(tmp_path):
     decisions = runner.run_once()
     assert len(decisions) == 3                 # synthetic provider serves any TF
     assert runner.base_timeframe == "5m"
+
+
+def test_high_profile_trades_more_than_low():
+    from app.core.config import apply_risk_profile, load_config
+    base = load_config()
+    low = apply_risk_profile(base, "low")
+    high = apply_risk_profile(base, "high")
+    # High acts on weaker signals and lower conviction -> more frequent trading.
+    assert high.conviction.bias_threshold < low.conviction.bias_threshold
+    assert high.conviction.flat_below < low.conviction.flat_below
+    # Guardrails untouched in both.
+    for s in (low, high):
+        assert s.risk.min_rr >= 2.0
+        assert s.execution.cost_aware is True
+        assert s.risk.default_leverage == 1.0

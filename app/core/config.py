@@ -58,6 +58,7 @@ class ConvictionConfig(BaseModel):
     flat_below: float = 40
     reduced_below: float = 60
     standard_below: float = 80
+    bias_threshold: float = 8     # |net directional bias| needed to take a side
 
 
 class StrategyConfig(BaseModel):
@@ -207,10 +208,16 @@ def get_settings() -> Settings:
 # Risk profiles: scale per-trade risk and concurrency. Hard invariants stay —
 # stops mandatory, kill switch, no leverage, no martingale. "High" is genuinely
 # higher risk, not reckless: it sizes more per trade and holds more names.
+# Profiles scale sizing/concurrency AND how readily the bot acts (conviction
+# floor + directional-bias threshold). Higher profiles trade more often, but the
+# EV / reward-risk / cost / stop guardrails are NEVER relaxed.
 _RISK_PROFILES = {
-    "low":    {"risk_per_trade": 0.005, "max_positions": 8,  "max_asset_exposure": 0.08},
-    "medium": {"risk_per_trade": 0.010, "max_positions": 12, "max_asset_exposure": 0.10},
-    "high":   {"risk_per_trade": 0.020, "max_positions": 20, "max_asset_exposure": 0.12},
+    "low":    {"risk_per_trade": 0.005, "max_positions": 8,  "max_asset_exposure": 0.08,
+               "flat_below": 45, "bias_threshold": 12},
+    "medium": {"risk_per_trade": 0.010, "max_positions": 12, "max_asset_exposure": 0.10,
+               "flat_below": 40, "bias_threshold": 8},
+    "high":   {"risk_per_trade": 0.020, "max_positions": 20, "max_asset_exposure": 0.12,
+               "flat_below": 33, "bias_threshold": 5},
 }
 
 
@@ -229,4 +236,6 @@ def apply_risk_profile(settings: Settings, profile: str) -> Settings:
     s.risk.risk_per_trade_min = min(s.risk.risk_per_trade_min, p["risk_per_trade"])
     s.risk.max_positions = p["max_positions"]
     s.risk.max_asset_exposure = p["max_asset_exposure"]
+    s.conviction.flat_below = p["flat_below"]
+    s.conviction.bias_threshold = p["bias_threshold"]
     return s

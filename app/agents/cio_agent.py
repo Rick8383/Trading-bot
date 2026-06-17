@@ -65,9 +65,10 @@ class CIOAgent:
         conviction = max(0.0, base_conviction - penalty)
 
         # 3) Direction from net bias, constrained by regime.
-        if agg.directional_bias > 8:
+        bt = self.s.conviction.bias_threshold
+        if agg.directional_bias > bt:
             action = Action.LONG
-        elif agg.directional_bias < -8:
+        elif agg.directional_bias < -bt:
             action = Action.SHORT
         else:
             return None  # no clear edge -> FLAT (handled by caller)
