@@ -113,6 +113,21 @@ class ExitConfig(BaseModel):
     time_stop_min_r: float = 0.5      # ...if it has not reached this much R
 
 
+class PortfolioConfig(BaseModel):
+    """Correlation-aware portfolio construction.
+
+    Stops a basket of highly-correlated names (e.g. 20 cryptos) from becoming
+    one concentrated bet: a new trade too correlated with what's held is vetoed,
+    and otherwise its size is shrunk by its average correlation to the book.
+    """
+
+    enabled: bool = True
+    max_correlation: float = Field(default=0.85, ge=0, le=1)  # veto above this
+    corr_lookback: int = 60
+    min_scale: float = Field(default=0.4, ge=0, le=1)         # floor on size shrink
+    corr_threshold: float = Field(default=0.3, ge=0, le=1)    # below: no shrink
+
+
 class UniverseFilters(BaseModel):
     min_daily_volume: float = 0
     max_spread_bps: float = 100
@@ -153,6 +168,7 @@ class Settings(BaseModel):
     execution: ExecutionConfig = ExecutionConfig()
     entries: EntryConfig = EntryConfig()
     exits: ExitConfig = ExitConfig()
+    portfolio: PortfolioConfig = PortfolioConfig()
     universe: UniverseConfig = UniverseConfig()
     learning: LearningConfig = LearningConfig()
     monitoring: MonitoringConfig = MonitoringConfig()

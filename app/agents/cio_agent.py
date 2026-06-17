@@ -147,6 +147,7 @@ class CIOAgent:
         approved: bool,
         rejection_reason: str | None,
         learned_penalties: dict[str, float],
+        portfolio_scale: float = 1.0,
     ) -> FinalDecision:
         consulted = sorted({v.agent for v in idea.votes}) + [self.name, "RiskManager_AI"]
         if not approved:
@@ -157,7 +158,8 @@ class CIOAgent:
                 learned_penalties=learned_penalties,
             )
 
-        alloc = conv.allocation_factor(idea.conviction, self.s.conviction)
+        # Shrink size by the correlation scale (1.0 = uncorrelated, < 1 = crowded).
+        alloc = conv.allocation_factor(idea.conviction, self.s.conviction) * max(0.0, min(1.0, portfolio_scale))
         size = calculate_position_size(
             capital=self.s.capital.initial,
             risk_pct=risk_params.risk_per_trade,

@@ -73,6 +73,14 @@ entries:
   pullback_buffer_atr: 0.1
   expiry_bars: 5           # cancel the limit if unfilled after N bars
 
+# Correlation-aware portfolio construction (avoid 20 names = 1 bet).
+portfolio:
+  enabled: true
+  max_correlation: 0.85    # veto a new trade above this avg correlation to the book
+  corr_lookback: 60
+  corr_threshold: 0.30     # below this: no size shrink
+  min_scale: 0.40          # floor on correlation-based size shrink
+
 # Active trade management (smart exits). Thresholds in R (risk) multiples.
 exits:
   enabled: true

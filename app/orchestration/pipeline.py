@@ -24,6 +24,7 @@ from app.core.constants import Action
 from app.decision.adaptive_risk import adapt_risk
 from app.decision.capital_preservation import evaluate_drawdown
 from app.decision.exposure import Position
+from app.decision.portfolio import assess_candidate, correlation_matrix
 from app.learning.knowledge_base import KnowledgeBase
 from app.learning.postmortem import setup_signature
 from app.models import FinalDecision
@@ -107,6 +108,10 @@ class DecisionPipeline:
         rs = relative_strength(lookback_returns(daily))
         macro_score, breadth = self._macro_breadth(daily)
 
+        # Portfolio layer: correlation matrix + currently-held names.
+        corr = correlation_matrix(daily, self.s.portfolio.corr_lookback)
+        held = [p.asset for p in state.positions]
+
         # Optional external feeds (news/social). Default: no feed -> neutral.
         news = self._collect(self.news_provider, daily.keys())
         sentiment = self._collect(self.sentiment_provider, daily.keys())
@@ -169,15 +174,20 @@ class DecisionPipeline:
                     risk_flags=agg.risk_flags, learned_penalties=penalties,
                 )
             else:
+                # Portfolio: veto if too correlated with the book, else shrink size.
+                corr_block, corr_scale, corr_reason = assess_candidate(
+                    symbol, [h for h in held if h != symbol], corr, self.s.portfolio
+                )
                 verdict = self.risk.validate(
                     idea, portfolio=state.positions, preservation=pres,
                     daily_loss=state.daily_loss, shorts_allowed=rp.shorts_allowed,
-                    exposure_cap=exposure_cap,
+                    exposure_cap=exposure_cap, correlation_block=corr_block,
+                    correlation_reason=corr_reason,
                 )
                 decision = self.cio.finalize(
                     idea, regime=regime, risk_params=rp, approved=verdict.approved,
                     rejection_reason=None if verdict.approved else verdict.reason,
-                    learned_penalties=penalties,
+                    learned_penalties=penalties, portfolio_scale=corr_scale,
                 )
 
             if self.audit:

@@ -217,7 +217,8 @@ le risque de se tromper ou améliore la robustesse.
 > complet.
 
 **D. Portefeuille & risque**
-14. Optimisation de portefeuille (risk parity, corrélations, secteurs).
+14. ✅ Optimisation de portefeuille : **veto/scaling par corrélation** (évite que
+    20 noms corrélés = 1 pari) + ratio de diversification. *(secteurs : à venir)*
 15. Volatility targeting au niveau portefeuille ; budgets de risque.
 16. Gestion fine des shorts (borrow, squeeze, earnings).
 17. Stress VaR/CVaR temps réel + limites dynamiques.

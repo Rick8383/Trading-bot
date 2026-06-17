@@ -42,6 +42,8 @@ class RiskManager:
         daily_loss: float,
         shorts_allowed: bool = True,
         exposure_cap: float | None = None,
+        correlation_block: bool = False,
+        correlation_reason: str = "",
     ) -> RiskVerdict:
         reasons: list[str] = []
 
@@ -51,6 +53,10 @@ class RiskManager:
         if preservation.paper_only:
             reasons.append("paper-only state: no new risk")
             return RiskVerdict(False, reasons)
+
+        # 1b) Correlation veto (computed by the portfolio layer cross-section).
+        if correlation_block:
+            return RiskVerdict(False, [f"correlation: {correlation_reason or 'too correlated'}"])
 
         # 2) Daily loss limit.
         if daily_loss >= self.risk.daily_loss_limit:
