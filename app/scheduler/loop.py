@@ -45,6 +45,8 @@ class RealtimeRunner:
     store: object | None = None
     ema_periods: tuple[int, ...] = field(default=(20, 50, 100, 200))
     agents: list | None = None
+    base_timeframe: str = "1D"          # primary trading timeframe (e.g. 5m, 1H, 1D)
+    context_timeframe: str | None = "1W"  # higher TF for multi-timeframe context
 
     def __post_init__(self) -> None:
         self.kb = KnowledgeBase(self.settings.learning.store_path, self.settings.learning.min_samples_for_lesson)
@@ -61,18 +63,26 @@ class RealtimeRunner:
 
     # --- one cycle -----------------------------------------------------
     def _frames(self) -> dict[str, dict[str, pd.DataFrame]]:
+        """Fetch the primary timeframe (stored under "1D" = the primary frame
+        the agents read) plus an optional higher-TF context (under "1W")."""
         out: dict[str, dict[str, pd.DataFrame]] = {}
         for sym in self.symbols:
             try:
-                df = self.provider.get_ohlcv(sym, "1D", 500)
+                df = self.provider.get_ohlcv(sym, self.base_timeframe, 500)
             except Exception:  # noqa: BLE001
                 continue
             if len(df) < 60:
                 continue
             tf = {"1D": ind.enrich(df, self.ema_periods)}
-            weekly = resample_ohlcv(df, "1W")
-            if len(weekly) >= 40:
-                tf["1W"] = ind.enrich(weekly, self.ema_periods)
+            if self.context_timeframe:
+                try:
+                    ctx = self.provider.get_ohlcv(sym, self.context_timeframe, 500)
+                    if len(ctx) >= 40:
+                        tf["1W"] = ind.enrich(ctx, self.ema_periods)
+                except Exception:  # noqa: BLE001 - context is optional
+                    weekly = resample_ohlcv(df, "1W")
+                    if len(weekly) >= 40:
+                        tf["1W"] = ind.enrich(weekly, self.ema_periods)
             out[sym] = tf
         return out
 

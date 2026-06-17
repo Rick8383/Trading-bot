@@ -85,7 +85,11 @@ exits:
 universe:
   etfs: [SPY, QQQ, IWM, TLT, GLD, XLF, XLK, XLE]
   equities: [AAPL, MSFT, NVDA, AMZN, GOOGL]
-  crypto: ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT", "AVAX/USDT", "LINK/USDT"]
+  # Top-20 crypto by market cap (USDT pairs). Trade with --source crypto.
+  crypto: ["BTC/USDT", "ETH/USDT", "BNB/USDT", "SOL/USDT", "XRP/USDT",
+           "ADA/USDT", "DOGE/USDT", "AVAX/USDT", "TRX/USDT", "LINK/USDT",
+           "DOT/USDT", "MATIC/USDT", "TON/USDT", "LTC/USDT", "BCH/USDT",
+           "SHIB/USDT", "UNI/USDT", "ATOM/USDT", "XLM/USDT", "NEAR/USDT"]
   filters:
     min_daily_volume: 1000000
     max_spread_bps: 25

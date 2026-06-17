@@ -183,3 +183,31 @@ def load_config(path: str | os.PathLike | None = None) -> Settings:
 def get_settings() -> Settings:
     """Process-wide cached settings (override via load_config in tests)."""
     return load_config()
+
+
+# Risk profiles: scale per-trade risk and concurrency. Hard invariants stay —
+# stops mandatory, kill switch, no leverage, no martingale. "High" is genuinely
+# higher risk, not reckless: it sizes more per trade and holds more names.
+_RISK_PROFILES = {
+    "low":    {"risk_per_trade": 0.005, "max_positions": 8,  "max_asset_exposure": 0.08},
+    "medium": {"risk_per_trade": 0.010, "max_positions": 12, "max_asset_exposure": 0.10},
+    "high":   {"risk_per_trade": 0.020, "max_positions": 20, "max_asset_exposure": 0.12},
+}
+
+
+def apply_risk_profile(settings: Settings, profile: str) -> Settings:
+    """Return settings tuned to a risk profile (low | medium | high).
+
+    Leverage stays at 1.0 and every guardrail remains; only sizing and the
+    number of concurrent positions change.
+    """
+    p = _RISK_PROFILES.get(profile)
+    if not p:
+        return settings
+    s = settings.model_copy(deep=True)
+    s.risk.risk_per_trade = p["risk_per_trade"]
+    s.risk.risk_per_trade_max = max(s.risk.risk_per_trade_max, p["risk_per_trade"])
+    s.risk.risk_per_trade_min = min(s.risk.risk_per_trade_min, p["risk_per_trade"])
+    s.risk.max_positions = p["max_positions"]
+    s.risk.max_asset_exposure = p["max_asset_exposure"]
+    return s

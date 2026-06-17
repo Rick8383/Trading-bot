@@ -26,7 +26,11 @@ from app.data.market_data import MarketDataProvider, SyntheticConfig, synthetic_
 _log = get_logger("data")
 
 # Our timeframe labels -> (ccxt code, yfinance interval, pandas resample rule)
-_CCXT_TF = {"1H": "1h", "4H": "4h", "1D": "1d", "1W": "1w"}
+_CCXT_TF = {
+    "1m": "1m", "3m": "3m", "5m": "5m", "15m": "15m", "30m": "30m",
+    "1H": "1h", "2H": "2h", "4H": "4h", "6H": "6h", "12H": "12h",
+    "1D": "1d", "1W": "1w",
+}
 _YF_INTERVAL = {"1H": "60m", "4H": "60m", "1D": "1d", "1W": "1wk"}
 _RESAMPLE = {"4H": "4h", "1W": "1W"}
 

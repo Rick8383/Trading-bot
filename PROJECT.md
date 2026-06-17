@@ -144,12 +144,27 @@ ALPACA_KEY=...    ALPACA_SECRET=...
 ### Étape 4 — Lancer la boucle live-paper en continu
 ```bash
 set -a && source .env && set +a
-# Crypto sur Binance testnet, un cycle / 15 min :
-python scripts/run_live.py --source crypto --venue binance --interval 900 --ml
-# Actions sur Alpaca paper, un cycle / heure :
-python scripts/run_live.py --source equities --venue alpaca --interval 3600 --ml
+# Top-20 cryptos, intraday 5m (contexte 1H), risque élevé, cycle / 60 s :
+python scripts/run_live.py --source crypto --venue binance \
+    --timeframe 5m --context-tf 1H --risk high --interval 60 --ml
+# Plus posé : 1h / contexte 1d, risque moyen :
+python scripts/run_live.py --source crypto --venue binance \
+    --timeframe 1H --context-tf 1D --risk medium --interval 300
+# Actions sur Alpaca paper :
+python scripts/run_live.py --source equities --venue alpaca --timeframe 1D --interval 3600
 ```
-Sans le jeton **ou** les clés → repli automatique sur le paper interne (le dit).
+- `--timeframe` : `1m,5m,15m,30m,1H,4H,1D`. `--context-tf` : TF supérieur pour la confluence.
+- `--risk` : `low | medium | high` (sizing + nombre de positions ; garde-fous toujours actifs).
+- Sans le jeton **ou** les clés → repli automatique sur le paper interne (le dit).
+
+> **Fréquence & risque — réalisme (important).** « Des centaines d'analyses/seconde »
+> = HFT : **impossible** en retail (co-location, feeds directs) et **contre-productif**
+> (les API gratuites plafonnent ~20 req/s ; surtout, trader trop souvent fait
+> exploser frais + slippage et **brûle le capital**). Le plancher réaliste avec
+> des données gratuites est **~30-60 s par cycle** sur des bougies 1m-5m. Plus on
+> trade vite, plus l'edge par trade doit dépasser les coûts — sinon on perd. Le
+> profil `high` augmente la taille et le nombre de positions, **pas** la fréquence
+> au point de s'auto-saboter. Le levier reste à 1.0.
 
 ### Étape 5 — Le laisser apprendre (la durée fait la qualité)
 - Garde **le même `--db`** : décisions, trades, leçons et métriques s'accumulent.
