@@ -85,6 +85,8 @@ class CioWeights(BaseModel):
 class ExecutionConfig(BaseModel):
     slippage_bps: float = 5
     commission_bps: float = 2
+    cost_aware: bool = True          # require EV to clear round-trip costs + buffer
+    min_edge_pct: float = 0.10       # net EV must exceed costs by at least this (%)
 
 
 class EntryConfig(BaseModel):

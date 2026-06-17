@@ -113,6 +113,16 @@ class CIOAgent:
         if not ev.accept:
             return None
 
+        # 6b) Edge net of costs: a trade must clear the round-trip cost (entry +
+        #     exit slippage & commission) by a buffer. This is the anti-overtrading
+        #     gate that matters most intraday, where costs eat small moves.
+        ex = self.s.execution
+        round_trip_cost_pct = 2 * (ex.slippage_bps + ex.commission_bps) / 10_000 * 100
+        net_ev = ev.expected_value - round_trip_cost_pct
+        if ex.cost_aware and net_ev < ex.min_edge_pct:
+            return None
+        net_ev = net_ev if ex.cost_aware else ev.expected_value
+
         idea = TradeIdea(
             asset=asset,
             action=action,
@@ -120,7 +130,7 @@ class CIOAgent:
             entry=entry_price,
             stop_loss=stop,
             take_profit=target,
-            expected_value=ev.expected_value,
+            expected_value=net_ev,          # net of round-trip costs (honest)
             reward_risk=ev.reward_risk,
             win_probability=win_prob,
             pending=pending,

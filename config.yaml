@@ -62,6 +62,8 @@ cio_weights:
 execution:
   slippage_bps: 5
   commission_bps: 2
+  cost_aware: true       # reject trades whose EV doesn't clear round-trip costs
+  min_edge_pct: 0.10     # ...by at least this margin (%). Critical for intraday.
 
 # Entry timing. 'pullback' enters via a limit order at the zone when extended.
 entries:

@@ -35,7 +35,9 @@ Trois règles **structurelles** (codées, pas seulement promises) :
 | 4 | **Walk-forward OOS**, agent **SMC**, agent **ML proposeur** | ✅ |
 | 5 | **PostgreSQL** + **Prometheus/Grafana**, agents **Macro/News/Sentiment** | ✅ |
 | 6 | **SL/TP structure-aware** (S/R, liquidité, FVG), **sorties intelligentes** (scale-out, break-even, trailing, time-stop), **entrées pullback** (ordres limite), **walk-forward pipeline complet** | ✅ |
-| 7+ | Voir §6 « Vers le bot ultime » | 🔜 |
+| 6b | **Top-20 cryptos**, **timeframes intraday** (1m-1d), **profils de risque** (low/medium/high) | ✅ |
+| 7 | **ML calibré** (Platt) → win_prob → EV, **Volume Profile / VWAP ancré**, **filtre edge-net-de-coûts** (anti-sur-trading) | ✅ |
+| 8+ | Voir §6 « Vers le bot ultime » | 🔜 |
 
 **Tests : `pytest -q` (doit rester vert).** Le détail du nombre de tests évolue ;
 le filet de sécurité couvre indicateurs, décision, risque, exécution, agents,
