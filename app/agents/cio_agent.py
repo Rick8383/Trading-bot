@@ -99,8 +99,14 @@ class CIOAgent:
             stop = atr_stop(entry_price, atr, action, mult)
             target = take_profit(entry_price, stop, action, min_rr)
 
-        # 6) Win probability from conviction (deliberately conservative band).
+        # 6) Win probability: a conviction prior, refined by the ML's *calibrated*
+        #    probability when the ML agent is present and confident. A data-driven
+        #    win_prob feeds straight into the EV gate -> a sharper filter.
         win_prob = float(np.clip(0.40 + conviction / 100 * 0.25, 0.40, 0.68))
+        ml_p = self._ml_win_prob(agg, action)
+        if ml_p is not None:
+            w = self.s.strategy.ml_win_prob_weight
+            win_prob = float(np.clip((1 - w) * win_prob + w * ml_p, 0.30, 0.75))
         ev = evaluate(
             win_prob=win_prob, entry=entry_price, stop=stop, target=target, min_rr=self.s.risk.min_rr
         )
@@ -169,6 +175,18 @@ class CIOAgent:
             risk_flags=sorted({f for vt in idea.votes for f in vt.risk_flags}),
             learned_penalties=learned_penalties,
         )
+
+    def _ml_win_prob(self, agg: AggregatedVotes, action: Action) -> float | None:
+        """Extract the ML agent's calibrated P(up), oriented to the trade side.
+
+        Returns None when no confident ML vote is present, so non-ML rosters are
+        unaffected. For shorts we use 1 - P(up).
+        """
+        for v in agg.per_agent:
+            if v.features.get("role") == "ml" and "p_up" in v.features and v.confidence >= 0.3:
+                p_up = float(v.features["p_up"])
+                return p_up if action == Action.LONG else 1.0 - p_up
+        return None
 
     def _entry_price(self, df, last_price: float, atr: float, action: Action) -> tuple[float, bool]:
         """Market entry, or a pullback limit when price is extended from EMA20.

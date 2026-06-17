@@ -69,6 +69,7 @@ class StrategyConfig(BaseModel):
     adx_period: int = 14
     rsi_period: int = 14
     structure_stops: bool = True   # place SL/TP at support/resistance (ATR-bounded)
+    ml_win_prob_weight: float = Field(default=0.5, ge=0, le=1)  # blend ML prob into EV
 
 
 class CioWeights(BaseModel):
