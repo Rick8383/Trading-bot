@@ -40,15 +40,24 @@ def _fvg_edges(df: pd.DataFrame, lookback: int = 40) -> tuple[list[float], list[
 
 
 def support_resistance(df: pd.DataFrame, window: int = 3, lookback: int = 60) -> tuple[list[float], list[float]]:
-    """Collect candidate supports and resistances (swings + recent liquidity + FVG)."""
+    """Collect candidate supports and resistances.
+
+    Sources: swing highs/lows, unfilled FVG edges, recent liquidity pools (range
+    extremes) and volume-profile nodes (POC + value-area edges). Volume nodes are
+    added to *both* pools and filtered by side by nearest_* — the high-volume
+    price is a magnet that acts as support from below and resistance from above.
+    """
+    from app.strategies.volume_profile import profile_levels
+
     recent = df.tail(max(lookback, window * 4))
     highs, lows = swing_points(recent["high"], recent["low"], window)
     fvg_sup, fvg_res = _fvg_edges(recent, lookback)
-    # Recent extremes are liquidity pools (where stops cluster).
     liq_hi = float(recent["high"].max())
     liq_lo = float(recent["low"].min())
-    supports = sorted(set(lows + fvg_sup + [liq_lo]))
-    resistances = sorted(set(highs + fvg_res + [liq_hi]))
+    vp_levels = profile_levels(df, lookback=max(lookback, 100))
+
+    supports = sorted(set(lows + fvg_sup + vp_levels + [liq_lo]))
+    resistances = sorted(set(highs + fvg_res + vp_levels + [liq_hi]))
     return supports, resistances
 
 

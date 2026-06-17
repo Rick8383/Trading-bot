@@ -22,6 +22,7 @@ from app.agents.structure_agent import MarketStructureAgent
 from app.agents.trend_agent import TrendAgent
 from app.agents.volatility_agent import VolatilityAgent
 from app.agents.volume_agent import VolumeAgent
+from app.agents.volume_profile_agent import VolumeProfileAgent
 
 # SMC + Macro are cheap and deterministic -> on by default (low-weighted).
 # Macro uses market breadth (injected by the pipeline). ML trains a model each
@@ -36,6 +37,7 @@ DEFAULT_ANALYTIC_AGENTS: list[AnalyticAgent] = [
     QuantAgent(),
     SMCAgent(),
     MacroAgent(),
+    VolumeProfileAgent(),
 ]
 
 
@@ -44,6 +46,7 @@ def build_agents(
     include_smc: bool = True,
     include_macro: bool = True,
     include_external: bool = False,
+    include_volume_profile: bool = True,
 ) -> list[AnalyticAgent]:
     """Assemble the analytic agent roster.
 
@@ -59,6 +62,8 @@ def build_agents(
         agents.append(SMCAgent())
     if include_macro:
         agents.append(MacroAgent())
+    if include_volume_profile:
+        agents.append(VolumeProfileAgent())
     if include_external:
         agents.extend([NewsAgent(), SocialSentimentAgent()])
     if include_ml:
@@ -78,6 +83,7 @@ __all__ = [
     "QuantAgent",
     "SMCAgent",
     "MacroAgent",
+    "VolumeProfileAgent",
     "NewsAgent",
     "SocialSentimentAgent",
     "MLAgent",
