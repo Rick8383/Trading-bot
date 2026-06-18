@@ -25,7 +25,9 @@ def test_market_entry_when_not_extended():
 
 
 def test_pullback_limit_when_extended_long():
-    cio = _cio()
+    s = load_config()
+    s.entries.mode = "pullback"          # pullback is now opt-in (market is default)
+    cio = CIOAgent(s)
     df = ind.enrich(trending_ohlcv("X", 1, 200))
     price = float(df["close"].iloc[-1])
     atr = float(df["atr"].iloc[-1])

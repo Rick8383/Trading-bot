@@ -83,6 +83,17 @@ def main() -> None:
         print("\n--- No closed trades yet ---")
         print("  The bot is analysing but hasn't found setups clearing all gates.")
 
+    # --- actionable vs filled (catches entries that never executed) ---
+    actionable = conn.execute(
+        "SELECT COUNT(*) FROM decisions WHERE rejected=0 AND action!='FLAT'"
+    ).fetchone()[0]
+    if actionable:
+        print(f"\nActionable decisions (bot wanted to trade): {actionable:,}")
+        if actionable > n_tr * 3 + 5:
+            print("  ! Far more actionable decisions than trades -> entries weren't")
+            print("    executing. Usual cause: pullback limit orders expiring unfilled.")
+            print("    Fix shipped: entries default to MARKET now (set entries.mode).")
+
     # --- why flat ---
     flat = _q(conn, "SELECT rejection_reason FROM decisions WHERE rejected=1")
     if flat:

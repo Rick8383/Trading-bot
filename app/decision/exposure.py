@@ -67,8 +67,15 @@ def check_limits(
 def can_add(
     existing: list[Position], candidate: Position, risk: RiskConfig, exposure_cap: float | None = None
 ) -> tuple[bool, str]:
-    """Would adding ``candidate`` keep the portfolio within all limits?"""
-    rep = check_limits([*existing, candidate], risk, exposure_cap)
+    """Would adding ``candidate`` keep the portfolio within all limits?
+
+    A position already held in the same asset is *replaced*, not stacked — we
+    never add to an existing name (execution skips held symbols). Without this,
+    re-evaluating a held name double-counts its weight and falsely trips the
+    per-asset cap (the '504 XLM weight > max' noise the founder saw).
+    """
+    others = [p for p in existing if p.asset != candidate.asset]
+    rep = check_limits([*others, candidate], risk, exposure_cap)
     if rep.ok:
         return True, "within limits"
     return False, "; ".join(rep.breaches)

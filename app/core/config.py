@@ -91,11 +91,12 @@ class ExecutionConfig(BaseModel):
 
 
 class EntryConfig(BaseModel):
-    """Entry timing. 'pullback' uses a limit order at the zone when price is
-    extended; 'market' enters immediately at the current price."""
+    """Entry timing. 'market' enters immediately (reliable). 'pullback' waits for
+    a limit at the zone — better price, but the limit can EXPIRE UNFILLED when
+    price trends away, which silently blocks entries. Default is market."""
 
     enabled: bool = True
-    mode: str = "pullback"            # pullback | market
+    mode: str = "market"             # market | pullback
     max_extension_atr: float = 1.5    # 'extended' if price > EMA20 + N*ATR (long)
     pullback_buffer_atr: float = 0.1  # limit sits this far above the EMA20 zone
     expiry_bars: int = 5              # cancel the limit if unfilled after N bars

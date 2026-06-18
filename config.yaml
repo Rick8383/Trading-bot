@@ -68,7 +68,7 @@ execution:
 # Entry timing. 'pullback' enters via a limit order at the zone when extended.
 entries:
   enabled: true
-  mode: pullback           # pullback | market
+  mode: market             # market (reliable) | pullback (better price, can miss entries)
   max_extension_atr: 1.5   # 'extended' if price > EMA20 + N*ATR (long)
   pullback_buffer_atr: 0.1
   expiry_bars: 5           # cancel the limit if unfilled after N bars
