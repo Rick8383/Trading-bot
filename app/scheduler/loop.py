@@ -200,12 +200,20 @@ class RealtimeRunner:
     def start(self, interval_seconds: int = 3600) -> None:  # pragma: no cover - runtime loop
         """Run the loop forever on an interval. Ctrl-C to stop."""
         try:
+            from datetime import datetime
+
             from apscheduler.schedulers.blocking import BlockingScheduler
 
             sched = BlockingScheduler()
-            sched.add_job(self.run_once, "interval", seconds=interval_seconds, next_run_time=None)
+            # Root fix: schedule the FIRST run immediately (next_run_time=now) and
+            # repeat every interval. Passing next_run_time=None previously created
+            # the job PAUSED, so it never fired automatically. coalesce + a single
+            # instance prevent overlap if a cycle runs longer than the interval.
+            sched.add_job(
+                self.run_once, "interval", seconds=interval_seconds,
+                next_run_time=datetime.now(), max_instances=1, coalesce=True,
+            )
             _log.info("scheduler_start", interval=interval_seconds) if hasattr(_log, "info") else None
-            self.run_once()
             sched.start()
         except ImportError:
             import time

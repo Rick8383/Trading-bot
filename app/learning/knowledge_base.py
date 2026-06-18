@@ -46,6 +46,13 @@ class Lesson:
             and self.loss_rate > 0.5
         )
 
+    def is_confirmed_good(self, min_samples: int) -> bool:
+        return (
+            self.samples >= min_samples
+            and self.expectancy > 0
+            and self.loss_rate < 0.5
+        )
+
     def penalty(self, min_samples: int) -> float:
         """Conviction points to subtract when this context is present."""
         if not self.is_confirmed_bad(min_samples):
@@ -54,6 +61,19 @@ class Lesson:
         severity = (self.loss_rate - 0.5) * 24.0          # up to 12 at 100% loss
         certainty = min(1.0, self.samples / (min_samples * 3))
         return float(min(_PER_LESSON_CAP, severity * (0.6 + 0.4 * certainty)))
+
+    def bonus(self, min_samples: int) -> float:
+        """Conviction points to ADD for a context with proven positive edge.
+
+        Symmetric to ``penalty``: lean into setups that have actually worked,
+        but only once enough samples confirm it (no overfitting to one lucky
+        high-vol trade). Capped like penalties.
+        """
+        if not self.is_confirmed_good(min_samples):
+            return 0.0
+        strength = (0.5 - self.loss_rate) * 24.0          # up to 12 at 0% loss
+        certainty = min(1.0, self.samples / (min_samples * 3))
+        return float(min(_PER_LESSON_CAP, strength * (0.6 + 0.4 * certainty)))
 
 
 class KnowledgeBase:
@@ -107,5 +127,19 @@ class KnowledgeBase:
                     out[key] = round(p, 2)
         return out
 
+    def bonuses(self, signature_keys: list[str]) -> dict[str, float]:
+        """Conviction bonuses for context keys with a proven positive edge."""
+        out: dict[str, float] = {}
+        for key in signature_keys:
+            lesson = self.lessons.get(key)
+            if lesson:
+                b = lesson.bonus(self.min_samples)
+                if b > 0:
+                    out[key] = round(b, 2)
+        return out
+
     def active_lessons(self) -> list[Lesson]:
         return [l for l in self.lessons.values() if l.is_confirmed_bad(self.min_samples)]
+
+    def winning_contexts(self) -> list[Lesson]:
+        return [l for l in self.lessons.values() if l.is_confirmed_good(self.min_samples)]

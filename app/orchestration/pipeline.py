@@ -159,12 +159,13 @@ class DecisionPipeline:
                 conviction=60, reward_risk=2.0, risk_flags=agg.risk_flags,
             )
             penalties = self.kb.penalties(sig) if self.kb else {}
+            bonuses = self.kb.bonuses(sig) if self.kb else {}
 
             # Step 8/9: CIO forms an idea, risk vetoes, CIO finalizes.
             idea = self.cio.form_idea(
                 asset=symbol, agg=agg, regime=regime, last_price=last_price,
                 atr=atr if not pd.isna(atr) else 0.0, risk_params=rp, learned_penalties=penalties,
-                df=df1d,
+                learned_bonuses=bonuses, df=df1d,
             )
             if idea is None:
                 decision = FinalDecision(
@@ -172,6 +173,7 @@ class DecisionPipeline:
                     rejection_reason="no statistical edge (EV<=0 / low conviction / regime)",
                     regime=regime.regime, consulted_agents=[a.name for a in self.agents],
                     risk_flags=agg.risk_flags, learned_penalties=penalties,
+                    learned_bonuses=bonuses,
                 )
             else:
                 # Portfolio: veto if too correlated with the book, else shrink size.
@@ -187,7 +189,7 @@ class DecisionPipeline:
                 decision = self.cio.finalize(
                     idea, regime=regime, risk_params=rp, approved=verdict.approved,
                     rejection_reason=None if verdict.approved else verdict.reason,
-                    learned_penalties=penalties, portfolio_scale=corr_scale,
+                    learned_penalties=penalties, learned_bonuses=bonuses, portfolio_scale=corr_scale,
                 )
 
             if self.audit:

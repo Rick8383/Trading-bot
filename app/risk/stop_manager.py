@@ -20,7 +20,7 @@ from app.core.constants import Action
 from app.strategies.structure_levels import nearest_resistance, nearest_support
 
 
-def atr_stop(entry: float, atr: float, action: Action, multiplier: float = 2.5) -> float:
+def atr_stop(entry: float, atr: float, action: Action, multiplier: float = 3.0) -> float:
     """Volatility-based stop a fixed ATR-multiple away from entry."""
     dist = atr * multiplier
     if action == Action.LONG:
@@ -45,9 +45,9 @@ def structure_stop(
     entry: float,
     atr: float,
     action: Action,
-    multiplier: float = 2.5,
+    multiplier: float = 3.0,
     buffer_atr: float = 0.25,
-    sane_band: tuple[float, float] = (0.5, 3.0),
+    sane_band: tuple[float, float] = (0.8, 3.0),
 ) -> float:
     """Stop placed just beyond the nearest structural level, bounded by ATR.
 
@@ -107,7 +107,7 @@ def structure_target(
 
 
 def trail_stop(
-    current_stop: float, price: float, atr: float, action: Action, multiplier: float = 2.5
+    current_stop: float, price: float, atr: float, action: Action, multiplier: float = 3.0
 ) -> float:
     """Ratchet the stop toward price; only ever tightens (favorable side)."""
     candidate = atr_stop(price, atr, action, multiplier)

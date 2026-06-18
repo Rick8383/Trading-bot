@@ -66,7 +66,7 @@ class StrategyConfig(BaseModel):
     timeframes: list[str] = ["1H", "4H", "1D", "1W"]
     ema_periods: list[int] = [20, 50, 100, 200]
     atr_period: int = 14
-    atr_stop_multiplier: float = 2.5
+    atr_stop_multiplier: float = 3.0   # wider stops: avoid getting chopped by noise
     adx_period: int = 14
     rsi_period: int = 14
     structure_stops: bool = True   # place SL/TP at support/resistance (ATR-bounded)
@@ -108,10 +108,10 @@ class ExitConfig(BaseModel):
     scale_out_at_r: float = 1.0       # take partial profit at +1R
     scale_out_fraction: float = 0.5   # close half at the first target
     breakeven_at_r: float = 1.0       # move stop to entry once +1R is reached
-    trail_after_r: float = 1.0        # start trailing once beyond +1R
-    trail_atr_mult: float = 2.5
-    time_stop_bars: int = 25          # cut a stagnating trade after N bars
-    time_stop_min_r: float = 0.5      # ...if it has not reached this much R
+    trail_after_r: float = 1.2        # let it run a bit before trailing
+    trail_atr_mult: float = 3.0
+    time_stop_bars: int = 60          # give trades room to develop (was 25)
+    time_stop_min_r: float = 0.0      # only cut trades NOT in profit (was 0.5)
 
 
 class PortfolioConfig(BaseModel):

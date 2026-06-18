@@ -92,6 +92,7 @@ class FinalDecision(BaseModel):
     consulted_agents: list[str] = Field(default_factory=list)
     risk_flags: list[str] = Field(default_factory=list)
     learned_penalties: dict[str, float] = Field(default_factory=dict)
+    learned_bonuses: dict[str, float] = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=_utcnow)
 
     def audit_dict(self) -> dict[str, Any]:

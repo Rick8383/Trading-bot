@@ -41,9 +41,11 @@ class CIOAgent:
         atr: float,
         risk_params: RiskParams,
         learned_penalties: dict[str, float] | None = None,
+        learned_bonuses: dict[str, float] | None = None,
         df=None,
     ) -> TradeIdea | None:
         learned_penalties = learned_penalties or {}
+        learned_bonuses = learned_bonuses or {}
 
         # 1) Conviction from role scores, weighted per config.
         weights = {
@@ -60,9 +62,12 @@ class CIOAgent:
         }
         base_conviction = conv.compute_conviction(agg.role_scores, weights)
 
-        # 2) Apply learned penalties (capped) — the self-improvement feedback.
-        penalty = min(sum(learned_penalties.values()), self.s.learning.max_conviction_penalty)
-        conviction = max(0.0, base_conviction - penalty)
+        # 2) Apply learned penalties AND bonuses (both capped) — favor contexts
+        #    that have actually been profitable, penalize proven losers.
+        cap = self.s.learning.max_conviction_penalty
+        penalty = min(sum(learned_penalties.values()), cap)
+        bonus = min(sum(learned_bonuses.values()), cap)
+        conviction = float(max(0.0, min(100.0, base_conviction - penalty + bonus)))
 
         # 3) Direction from net bias, constrained by regime.
         bt = self.s.conviction.bias_threshold
@@ -148,15 +153,17 @@ class CIOAgent:
         approved: bool,
         rejection_reason: str | None,
         learned_penalties: dict[str, float],
+        learned_bonuses: dict[str, float] | None = None,
         portfolio_scale: float = 1.0,
     ) -> FinalDecision:
+        learned_bonuses = learned_bonuses or {}
         consulted = sorted({v.agent for v in idea.votes}) + [self.name, "RiskManager_AI"]
         if not approved:
             return FinalDecision(
                 asset=idea.asset, action=Action.FLAT, conviction=idea.conviction,
                 rejected=True, rejection_reason=rejection_reason, regime=regime.regime,
                 consulted_agents=consulted, risk_flags=[v for vt in idea.votes for v in vt.risk_flags],
-                learned_penalties=learned_penalties,
+                learned_penalties=learned_penalties, learned_bonuses=learned_bonuses,
             )
 
         # Shrink size by the correlation scale (1.0 = uncorrelated, < 1 = crowded).
@@ -186,7 +193,7 @@ class CIOAgent:
             regime=regime.regime,
             consulted_agents=consulted,
             risk_flags=sorted({f for vt in idea.votes for f in vt.risk_flags}),
-            learned_penalties=learned_penalties,
+            learned_penalties=learned_penalties, learned_bonuses=learned_bonuses,
         )
 
     def _ml_win_prob(self, agg: AggregatedVotes, action: Action) -> float | None:

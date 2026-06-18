@@ -16,7 +16,7 @@ risk:
   risk_per_trade_max: 0.01
   daily_loss_limit: 0.02      # halt new entries beyond -2% on the day
   max_drawdown: 0.15          # hard kill-switch threshold
-  min_rr: 2.0                 # minimum reward/risk to accept a trade
+  min_rr: 2.5                 # minimum reward/risk (raised: bigger winners vs losers)
   max_positions: 12
   max_asset_exposure: 0.10    # max weight in a single asset
   max_sector_exposure: 0.25
@@ -44,7 +44,7 @@ strategy:
   timeframes: ["1H", "4H", "1D", "1W"]
   ema_periods: [20, 50, 100, 200]
   atr_period: 14
-  atr_stop_multiplier: 2.5
+  atr_stop_multiplier: 3.0   # wider stops so noise doesn't chop trades out
   adx_period: 14
   rsi_period: 14
   structure_stops: true   # place SL/TP at support/resistance & liquidity (ATR-bounded)
@@ -87,10 +87,10 @@ exits:
   scale_out_at_r: 1.0       # take partial profit at +1R
   scale_out_fraction: 0.5   # close half there
   breakeven_at_r: 1.0       # move stop to entry at +1R (free trade)
-  trail_after_r: 1.0        # trail behind price beyond +1R
-  trail_atr_mult: 2.5
-  time_stop_bars: 25        # cut a stagnating trade after N bars...
-  time_stop_min_r: 0.5      # ...if it hasn't reached this much R
+  trail_after_r: 1.2        # let it run a bit before trailing
+  trail_atr_mult: 3.0
+  time_stop_bars: 60        # give trades room to develop (was 25)
+  time_stop_min_r: 0.0      # only cut trades NOT in profit (was 0.5)
 
 universe:
   etfs: [SPY, QQQ, IWM, TLT, GLD, XLF, XLK, XLE]
