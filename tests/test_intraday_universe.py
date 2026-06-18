@@ -10,12 +10,13 @@ def test_risk_profiles_scale_sizing_and_concurrency():
     base = load_config()
     low = apply_risk_profile(base, "low")
     high = apply_risk_profile(base, "high")
-    assert low.risk.risk_per_trade < high.risk.risk_per_trade
-    assert high.risk.risk_per_trade == 0.02
-    assert high.risk.max_positions == 20
+    aggressive = apply_risk_profile(base, "aggressive")
+    assert low.risk.risk_per_trade < high.risk.risk_per_trade <= aggressive.risk.risk_per_trade
+    assert aggressive.risk.risk_per_trade == 0.02
+    assert aggressive.risk.max_positions == 20
     # Hard invariant preserved: leverage stays 1.0 in every profile.
-    assert high.risk.default_leverage == 1.0
-    assert low.risk.default_leverage == 1.0
+    for p in (low, high, aggressive):
+        assert p.risk.default_leverage == 1.0
 
 
 def test_unknown_profile_is_noop():

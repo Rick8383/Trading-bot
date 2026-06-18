@@ -46,8 +46,8 @@ def main() -> None:
                     help="primary trading timeframe: 1m,5m,15m,30m,1H,4H,1D (default 1D)")
     ap.add_argument("--context-tf", default="1W", dest="context_tf",
                     help="higher timeframe for context (e.g. 1H when trading 5m)")
-    ap.add_argument("--risk", default="medium", choices=["low", "medium", "high"],
-                    help="risk profile: sizing + concurrency (guardrails always on)")
+    ap.add_argument("--risk", default="medium", choices=["low", "medium", "high", "aggressive"],
+                    help="risk profile: sizing + how readily it acts (guardrails always on)")
     args = ap.parse_args()
 
     s = apply_risk_profile(load_config(), args.risk)

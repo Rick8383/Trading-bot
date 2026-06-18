@@ -39,6 +39,7 @@ Trois règles **structurelles** (codées, pas seulement promises) :
 | 7 | **ML calibré** (Platt) → win_prob → EV, **Volume Profile / VWAP ancré**, **filtre edge-net-de-coûts** (anti-sur-trading) | ✅ |
 | 7b | **Optimisation portefeuille** (veto/scaling corrélation) ; **dashboard live réparé** (métriques + activité) | ✅ |
 | 7c | **Réglage sorties** (moins de time-stop, stops ATR plus larges, RR mini 2.5, **bonus d'apprentissage** sur contextes gagnants) ; **fix scheduler** (`next_run_time`) | ✅ |
+| 7d | **Fix conviction directionnelle** (le bot peut enfin SHORTER) + **fix frontière RR** + profil **`aggressive`** (croissance petit capital) | ✅ |
 | 8+ | Voir §6 « Vers le bot ultime » | 🔜 |
 
 **Tests : `pytest -q` (doit rester vert).** Le détail du nombre de tests évolue ;

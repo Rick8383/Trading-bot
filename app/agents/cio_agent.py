@@ -47,7 +47,6 @@ class CIOAgent:
         learned_penalties = learned_penalties or {}
         learned_bonuses = learned_bonuses or {}
 
-        # 1) Conviction from role scores, weighted per config.
         weights = {
             "trend": self.s.cio_weights.trend,
             "momentum": self.s.cio_weights.momentum,
@@ -60,21 +59,13 @@ class CIOAgent:
             "news": self.s.cio_weights.other * 0.5,      # headline sentiment
             "sentiment": self.s.cio_weights.other * 0.5,  # social: contrarian damping
         }
-        base_conviction = conv.compute_conviction(agg.role_scores, weights)
 
-        # 2) Apply learned penalties AND bonuses (both capped) — favor contexts
-        #    that have actually been profitable, penalize proven losers.
-        cap = self.s.learning.max_conviction_penalty
-        penalty = min(sum(learned_penalties.values()), cap)
-        bonus = min(sum(learned_bonuses.values()), cap)
-        conviction = float(max(0.0, min(100.0, base_conviction - penalty + bonus)))
-
-        # 3) Direction from net bias, constrained by regime.
+        # 1) Direction FIRST, from the net bias (long, short, or flat).
         bt = self.s.conviction.bias_threshold
         if agg.directional_bias > bt:
-            action = Action.LONG
+            action, sign = Action.LONG, 1.0
         elif agg.directional_bias < -bt:
-            action = Action.SHORT
+            action, sign = Action.SHORT, -1.0
         else:
             return None  # no clear edge -> FLAT (handled by caller)
 
@@ -82,6 +73,19 @@ class CIOAgent:
             return None
         if regime.regime == MarketRegime.CRASH:
             return None  # stand aside in a crash
+
+        # 2) Conviction = strength of agreement *in the chosen direction*. Orient
+        #    role scores by the trade side so a strong bearish read yields HIGH
+        #    short conviction (previously signed blending clamped shorts to ~0,
+        #    so the bot almost never shorted and under-counted mixed longs).
+        oriented = {k: v * sign for k, v in agg.role_scores.items()}
+        base_conviction = conv.compute_conviction(oriented, weights)
+
+        # 3) Apply learned penalties AND bonuses (both capped).
+        cap = self.s.learning.max_conviction_penalty
+        penalty = min(sum(learned_penalties.values()), cap)
+        bonus = min(sum(learned_bonuses.values()), cap)
+        conviction = float(max(0.0, min(100.0, base_conviction - penalty + bonus)))
 
         # 4) Below the trade floor -> no position.
         if conviction < self.s.conviction.flat_below:

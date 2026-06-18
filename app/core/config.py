@@ -210,23 +210,28 @@ def get_settings() -> Settings:
 # stops mandatory, kill switch, no leverage, no martingale. "High" is genuinely
 # higher risk, not reckless: it sizes more per trade and holds more names.
 # Profiles scale sizing/concurrency AND how readily the bot acts (conviction
-# floor + directional-bias threshold). Higher profiles trade more often, but the
-# EV / reward-risk / cost / stop guardrails are NEVER relaxed.
+# floor, bias threshold, min reward/risk, cost buffer). Higher profiles trade
+# more often. Hard guardrails are NEVER relaxed: stop mandatory, leverage 1.0,
+# kill switch, positive expected value net of costs.
 _RISK_PROFILES = {
     "low":    {"risk_per_trade": 0.005, "max_positions": 8,  "max_asset_exposure": 0.08,
-               "flat_below": 45, "bias_threshold": 12},
+               "flat_below": 45, "bias_threshold": 12, "min_rr": 3.0, "min_edge_pct": 0.15},
     "medium": {"risk_per_trade": 0.010, "max_positions": 12, "max_asset_exposure": 0.10,
-               "flat_below": 40, "bias_threshold": 8},
-    "high":   {"risk_per_trade": 0.020, "max_positions": 20, "max_asset_exposure": 0.12,
-               "flat_below": 33, "bias_threshold": 5},
+               "flat_below": 40, "bias_threshold": 8, "min_rr": 2.5, "min_edge_pct": 0.10},
+    "high":   {"risk_per_trade": 0.015, "max_positions": 16, "max_asset_exposure": 0.12,
+               "flat_below": 33, "bias_threshold": 5, "min_rr": 2.2, "min_edge_pct": 0.07},
+    # Growth-oriented for small capital: acts on weaker edges, more positions,
+    # lower (still >1) RR. Still stop-protected, unleveraged, cost-aware.
+    "aggressive": {"risk_per_trade": 0.020, "max_positions": 20, "max_asset_exposure": 0.15,
+                   "flat_below": 25, "bias_threshold": 3, "min_rr": 1.8, "min_edge_pct": 0.03},
 }
 
 
 def apply_risk_profile(settings: Settings, profile: str) -> Settings:
-    """Return settings tuned to a risk profile (low | medium | high).
+    """Return settings tuned to a risk profile (low | medium | high | aggressive).
 
-    Leverage stays at 1.0 and every guardrail remains; only sizing and the
-    number of concurrent positions change.
+    Leverage stays 1.0 and every guardrail remains; sizing, concurrency and how
+    readily the bot acts change.
     """
     p = _RISK_PROFILES.get(profile)
     if not p:
@@ -237,6 +242,8 @@ def apply_risk_profile(settings: Settings, profile: str) -> Settings:
     s.risk.risk_per_trade_min = min(s.risk.risk_per_trade_min, p["risk_per_trade"])
     s.risk.max_positions = p["max_positions"]
     s.risk.max_asset_exposure = p["max_asset_exposure"]
+    s.risk.min_rr = p["min_rr"]
     s.conviction.flat_below = p["flat_below"]
     s.conviction.bias_threshold = p["bias_threshold"]
+    s.execution.min_edge_pct = p["min_edge_pct"]
     return s

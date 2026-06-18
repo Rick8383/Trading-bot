@@ -55,7 +55,7 @@ def evaluate(
 
     if risk_pct <= 0:
         return EVResult(ev, rr, win_prob, False, "no stop distance (undefined risk)")
-    if rr < min_rr:
+    if rr < min_rr - 1e-9:   # epsilon: a target set to exactly min_rr must pass
         return EVResult(ev, rr, win_prob, False, f"reward/risk {rr:.2f} < min {min_rr}")
     if ev <= 0:
         return EVResult(ev, rr, win_prob, False, f"expected value {ev:.3f} <= 0")
