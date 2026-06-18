@@ -32,7 +32,8 @@ def make_broker(settings: Settings, venue: str = "auto"):
         cash=settings.capital.initial,
         slippage_bps=settings.execution.slippage_bps,
         commission_bps=settings.execution.commission_bps,
-        max_leverage=settings.risk.default_leverage,
+        max_leverage=(settings.leverage.max_leverage if settings.leverage.enabled
+                      else settings.risk.default_leverage),
     )
 
     if venue == "paper":
@@ -52,6 +53,17 @@ def make_broker(settings: Settings, venue: str = "auto"):
         if venue == "alpaca":
             _log_warn("ALPACA_KEY/SECRET missing -> using in-process paper broker")
             return paper
+
+    if venue in ("futures", "binance_futures"):
+        key, secret = os.getenv("BINANCE_KEY"), os.getenv("BINANCE_SECRET")
+        if key and secret:
+            from app.execution.live_broker import CcxtFuturesBroker
+
+            lev = int(settings.leverage.max_leverage) if settings.leverage.enabled else 1
+            _log_warn(f"using Binance FUTURES testnet broker (fake money, lev<= {lev})")
+            return CcxtFuturesBroker("binance", key, secret, unlocked=True, default_leverage=lev)
+        _log_warn("BINANCE_KEY/SECRET missing -> using in-process paper broker")
+        return paper
 
     if venue in ("binance", "auto"):
         key, secret = os.getenv("BINANCE_KEY"), os.getenv("BINANCE_SECRET")

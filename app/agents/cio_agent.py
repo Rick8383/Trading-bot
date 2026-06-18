@@ -19,6 +19,7 @@ from app.core.constants import Action, MarketRegime
 from app.decision import conviction as conv
 from app.decision.adaptive_risk import RiskParams
 from app.decision.expected_value import evaluate
+from app.decision.leverage import plan_leverage
 from app.models import FinalDecision, RegimeAssessment, TradeIdea
 from app.risk.position_sizing import calculate_position_size, position_weight
 from app.risk.stop_manager import atr_stop, structure_stop, structure_target, take_profit
@@ -170,15 +171,20 @@ class CIOAgent:
                 learned_penalties=learned_penalties, learned_bonuses=learned_bonuses,
             )
 
+        # Conviction-gated, liquidation-safe leverage (off unless enabled).
+        plan = plan_leverage(
+            conviction=idea.conviction, entry=idea.entry, stop=idea.stop_loss,
+            base_risk_pct=risk_params.risk_per_trade, cfg=self.s.leverage,
+        )
         # Shrink size by the correlation scale (1.0 = uncorrelated, < 1 = crowded).
         alloc = conv.allocation_factor(idea.conviction, self.s.conviction) * max(0.0, min(1.0, portfolio_scale))
         size = calculate_position_size(
             capital=self.s.capital.initial,
-            risk_pct=risk_params.risk_per_trade,
+            risk_pct=plan.risk_pct,
             entry_price=idea.entry,
             stop_price=idea.stop_loss,
             allocation_factor=alloc,
-            max_asset_weight=self.s.risk.max_asset_exposure,
+            max_asset_weight=self.s.risk.max_asset_exposure * plan.leverage,
         )
         weight = position_weight(size, idea.entry, self.s.capital.initial)
         return FinalDecision(
@@ -192,6 +198,7 @@ class CIOAgent:
             take_profit=idea.take_profit,
             expected_value=idea.expected_value,
             reward_risk=idea.reward_risk,
+            leverage=plan.leverage,
             pending=idea.pending,
             rejected=False,
             regime=regime.regime,

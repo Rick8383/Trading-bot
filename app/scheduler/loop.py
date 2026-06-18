@@ -120,7 +120,7 @@ class RealtimeRunner:
             if is_paper and (d.asset in self.broker.positions or d.asset in pending_syms):
                 continue
             order = Order(symbol=d.asset, action=d.action, quantity=d.quantity,
-                          entry=d.entry, stop_loss=d.stop_loss, take_profit=d.take_profit, leverage=1.0)
+                          entry=d.entry, stop_loss=d.stop_loss, take_profit=d.take_profit, leverage=d.leverage)
             try:
                 # Pullback limit orders are paper-only for now (live adapters are
                 # market-order venues); live enters at market.

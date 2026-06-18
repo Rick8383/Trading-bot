@@ -36,7 +36,10 @@ from app.scheduler.loop import RealtimeRunner  # noqa: E402
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--source", default="auto", choices=["synthetic", "crypto", "equities", "auto"])
-    ap.add_argument("--venue", default="paper", choices=["paper", "alpaca", "binance", "auto"])
+    ap.add_argument("--venue", default="paper",
+                    choices=["paper", "alpaca", "binance", "futures", "auto"])
+    ap.add_argument("--leverage", type=int, default=0,
+                    help="enable conviction-gated leverage with this max (e.g. 5 or 10; 0=off)")
     ap.add_argument("--symbols", nargs="*", default=None)
     ap.add_argument("--interval", type=int, default=3600, help="seconds between cycles (start loop)")
     ap.add_argument("--cycles", type=int, default=0, help="run N cycles then exit (0 = run forever)")
@@ -51,6 +54,9 @@ def main() -> None:
     args = ap.parse_args()
 
     s = apply_risk_profile(load_config(), args.risk)
+    if args.leverage and args.leverage > 1:
+        s.leverage.enabled = True
+        s.leverage.max_leverage = float(min(args.leverage, 10))
     provider = make_provider("synthetic" if args.source == "synthetic" else args.source)
     broker = make_broker(s, args.venue)
     # Default to the full top-20 crypto universe (or all ETFs+equities).
@@ -66,9 +72,10 @@ def main() -> None:
                             symbols=symbols, store=make_store(args.db),
                             agents=build_agents(include_ml=args.ml),
                             base_timeframe=args.timeframe, context_timeframe=args.context_tf)
+    lev_txt = f"x{int(s.leverage.max_leverage)} (conviction-gated)" if s.leverage.enabled else "off"
     print(f"Live loop | source={args.source} | venue={args.venue} | broker={type(broker).__name__} "
           f"| symbols={len(symbols)} | tf={args.timeframe}/{args.context_tf} | risk={args.risk} "
-          f"| risk/trade={s.risk.risk_per_trade:.1%} | live_unlocked={s.live_unlocked}")
+          f"| leverage={lev_txt} | live_unlocked={s.live_unlocked}")
     if args.interval < 30 and args.cycles == 0:
         print("  WARNING: intervals <30s risk API bans on free data; 30-60s is the realistic floor.")
 

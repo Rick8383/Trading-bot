@@ -85,6 +85,7 @@ class FinalDecision(BaseModel):
     take_profit: float | None = None
     expected_value: float = 0.0
     reward_risk: float = 0.0
+    leverage: float = 1.0                # 1.0 = unleveraged (conviction-gated)
     pending: bool = False                # entry is a pending pullback limit order
     rejected: bool = False
     rejection_reason: str | None = None

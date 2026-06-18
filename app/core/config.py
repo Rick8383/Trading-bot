@@ -115,6 +115,23 @@ class ExitConfig(BaseModel):
     time_stop_min_r: float = 0.0      # only cut trades NOT in profit (was 0.5)
 
 
+class LeverageConfig(BaseModel):
+    """Conviction-gated, liquidation-safe leverage. OFF by default.
+
+    Leverage is only applied when (a) explicitly enabled, AND (b) conviction is
+    high enough, AND (c) the stop sits safely inside the liquidation price so the
+    STOP — never the exchange — closes a losing trade. Dollar risk per trade is
+    hard-capped so leverage amplifies gains without enabling ruin.
+    """
+
+    enabled: bool = False
+    max_leverage: float = Field(default=10.0, ge=1.0, le=20.0)
+    conviction_x5: float = 70.0       # >= this conviction -> up to 5x
+    conviction_x10: float = 85.0      # >= this conviction -> up to 10x
+    max_risk_per_trade: float = Field(default=0.04, gt=0, le=0.10)  # cap with leverage
+    liquidation_buffer: float = Field(default=0.80, gt=0, le=0.95)  # stop inside L*buffer
+
+
 class PortfolioConfig(BaseModel):
     """Correlation-aware portfolio construction.
 
@@ -171,6 +188,7 @@ class Settings(BaseModel):
     entries: EntryConfig = EntryConfig()
     exits: ExitConfig = ExitConfig()
     portfolio: PortfolioConfig = PortfolioConfig()
+    leverage: LeverageConfig = LeverageConfig()
     universe: UniverseConfig = UniverseConfig()
     learning: LearningConfig = LearningConfig()
     monitoring: MonitoringConfig = MonitoringConfig()

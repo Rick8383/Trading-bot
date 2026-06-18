@@ -83,6 +83,67 @@ class AlpacaPaperBroker:
         return []
 
 
+class CcxtFuturesBroker:
+    """Crypto *futures* testnet adapter (real long AND short, with leverage).
+
+    Fake money on the exchange testnet. Sets per-symbol leverage and places
+    market orders in either direction with an exchange-side protective stop.
+    Use this to actually exploit bear markets (spot can't short).
+    """
+
+    def __init__(self, exchange: str, key: str, secret: str, unlocked: bool = False,
+                 default_leverage: int = 5):
+        if not unlocked:
+            raise LiveTradingLocked("CcxtFuturesBroker requires the live unlock token")
+        if not key or not secret:
+            raise ValueError("exchange API key/secret required")
+        import ccxt
+
+        self.exchange = getattr(ccxt, exchange)({
+            "apiKey": key, "secret": secret, "enableRateLimit": True,
+            "options": {"defaultType": "future"},
+        })
+        self.exchange.set_sandbox_mode(True)  # futures testnet
+        self.default_leverage = default_leverage
+
+    def submit(self, order: Order, decision_ref: str | None = None) -> dict:
+        validate(order, max_leverage=max(1.0, order.leverage))
+        side = "buy" if order.action == Action.LONG else "sell"
+        lev = int(max(1, round(order.leverage)))
+        try:
+            self.exchange.set_leverage(lev, order.symbol)
+        except Exception:  # noqa: BLE001 - some testnets set leverage differently
+            pass
+        entry = self.exchange.create_order(order.symbol, "market", side, order.quantity)
+        # Exchange-side protective stop (reduce-only), opposite side.
+        stop_side = "sell" if side == "buy" else "buy"
+        try:
+            self.exchange.create_order(
+                order.symbol, "stop_market", stop_side, order.quantity, None,
+                {"stopPrice": order.stop_loss, "reduceOnly": True},
+            )
+        except Exception:  # noqa: BLE001
+            pass
+        return entry
+
+    def close(self, symbol: str, price: float | None = None, reason: str = "manual") -> dict:
+        positions = self.exchange.fetch_positions([symbol])
+        for p in positions:
+            amt = float(p.get("contracts") or p.get("contractSize") or 0)
+            if amt:
+                side = "sell" if p.get("side") == "long" else "buy"
+                return self.exchange.create_order(symbol, "market", side, abs(amt),
+                                                  None, {"reduceOnly": True})
+        return {"status": "no_position"}
+
+    def equity(self, marks: dict[str, float] | None = None) -> float:
+        bal = self.exchange.fetch_balance()
+        return float(bal.get("total", {}).get("USDT", 0.0))
+
+    def mark_to_market(self, marks: dict[str, float]) -> list:
+        return []
+
+
 class CcxtTestnetBroker:
     """Crypto exchange *testnet* adapter via ccxt sandbox mode. Fake money only."""
 

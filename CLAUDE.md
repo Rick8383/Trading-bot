@@ -10,8 +10,12 @@ secondary. The system is allowed to stay flat/cash when there is no edge.
    trade. No agent or the CIO may override it.
 2. **No stopless orders.** `app/execution/order_validator.py` and the
    `RiskManager` both refuse trades without a valid stop. Keep both gates.
-3. **No leverage by default** (`default_leverage: 1.0`). Live trading stays
-   locked behind `LIVE_TRADING_UNLOCK=I_UNDERSTAND_THE_RISK`.
+3. **No leverage by default** (`leverage.enabled: false`, `default_leverage: 1.0`).
+   Leverage is an opt-in, founder-signed-off feature: when enabled it is
+   **conviction-gated** (x5/x10 only on high-conviction setups) and
+   **liquidation-safe** (the stop must trigger before liquidation), with a hard
+   dollar-risk cap. Live trading stays locked behind
+   `LIVE_TRADING_UNLOCK=I_UNDERSTAND_THE_RISK`.
 4. **Per-trade risk never increases after wins.** See `decision/adaptive_risk.py`.
 5. **Self-improvement proposes, never deploys.** `learning/improvement_engine.py`
    output is advisory only.

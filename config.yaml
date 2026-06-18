@@ -81,6 +81,19 @@ portfolio:
   corr_threshold: 0.30     # below this: no size shrink
   min_scale: 0.40          # floor on correlation-based size shrink
 
+# Conviction-gated, liquidation-safe leverage. OFF by default (founder opt-in).
+# Leverage is applied ONLY on high-conviction setups, and only when the stop sits
+# safely inside the liquidation price (so the stop, never the exchange, closes a
+# loser). Dollar risk per trade is hard-capped. Requires a futures venue to
+# execute live (spot can't be leveraged/shorted).
+leverage:
+  enabled: false
+  max_leverage: 10         # cap; conviction decides the actual leverage used
+  conviction_x5: 70        # >= this conviction -> up to x5
+  conviction_x10: 85       # >= this conviction -> up to x10
+  max_risk_per_trade: 0.04 # hard cap on dollar risk even with leverage
+  liquidation_buffer: 0.80 # stop must be inside buffer/leverage of entry
+
 # Active trade management (smart exits). Thresholds in R (risk) multiples.
 exits:
   enabled: true

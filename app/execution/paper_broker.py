@@ -49,6 +49,8 @@ class OpenPosition:
     bars_held: int = 0
     moved_to_breakeven: bool = False
     scaled_out: bool = False
+    leverage: float = 1.0
+    margin: float = 0.0                # cash posted as margin (notional / leverage)
 
     def __post_init__(self) -> None:
         if self.initial_stop == 0.0:
@@ -73,10 +75,12 @@ class OpenPosition:
         return (price - self.entry) * self.quantity * direction
 
     def market_value(self, price: float) -> float:
-        """Contribution of this position to equity."""
-        if self.action == Action.LONG:
-            return self.quantity * price          # cash already paid out
-        return self.unrealized(price)             # short: only PnL counts
+        """Equity contribution = posted margin returned + unrealized PnL.
+
+        Unified margin model: works for long, short and leveraged positions.
+        For an unleveraged long, margin == notional, so this equals qty*price.
+        """
+        return self.margin + self.unrealized(price)
 
 
 @dataclass
@@ -133,20 +137,20 @@ class PaperBroker:
         fill_price, comm_frac = apply_costs(
             order.entry, order.action, self.slippage_bps, self.commission_bps
         )
+        leverage = max(1.0, order.leverage)
         notional = fill_price * order.quantity
         commission = notional * comm_frac
+        margin = notional / leverage
 
-        if order.action == Action.LONG:
-            if notional + commission > self.cash + 1e-6:
-                raise ValueError("insufficient cash for long order (no leverage)")
-            self.cash -= notional + commission
-        else:  # SHORT: pay only the fee up front
-            self.cash -= commission
+        # Margin model: post margin (+ commission); cannot exceed available cash.
+        if margin + commission > self.cash + 1e-6:
+            raise ValueError("insufficient margin for order")
+        self.cash -= margin + commission
 
         self.positions[order.symbol] = OpenPosition(
             symbol=order.symbol, action=order.action, quantity=order.quantity,
             entry=fill_price, stop_loss=order.stop_loss, take_profit=order.take_profit,
-            opened_at=datetime.now(timezone.utc),
+            opened_at=datetime.now(timezone.utc), leverage=leverage, margin=margin,
         )
         fill = Fill(order.symbol, order.action, order.quantity, fill_price, commission,
                     datetime.now(timezone.utc))
@@ -164,13 +168,11 @@ class PaperBroker:
         commission = notional * comm_frac
         direction = 1 if pos.action == Action.LONG else -1
         pnl = (fill_price - pos.entry) * pos.quantity * direction - commission
+        # Return posted margin + settle PnL (margin model, leverage-aware).
+        self.cash += pos.margin + pnl
 
-        if pos.action == Action.LONG:
-            self.cash += notional - commission           # recover proceeds
-        else:
-            self.cash += pnl                              # settle short PnL
-
-        ret = pnl / (pos.entry * pos.quantity) if pos.quantity else 0.0
+        # Return on the *margin* committed (leverage amplifies the % return).
+        ret = pnl / pos.margin if pos.margin else 0.0
         trade = ClosedTrade(
             symbol=symbol, action=pos.action, quantity=pos.quantity, entry=pos.entry,
             exit=fill_price, pnl=pnl, return_pct=ret, opened_at=pos.opened_at,
@@ -225,11 +227,13 @@ class PaperBroker:
         commission = notional * comm_frac
         direction = 1 if pos.action == Action.LONG else -1
         pnl = (fill_price - pos.entry) * qty * direction - commission
-        self.cash += (notional - commission) if pos.action == Action.LONG else pnl
+        margin_part = pos.margin * fraction
+        self.cash += margin_part + pnl            # return proportional margin + PnL
 
         pos.quantity -= qty
+        pos.margin -= margin_part
         pos.scaled_out = True
-        ret = pnl / (pos.entry * qty) if qty else 0.0
+        ret = pnl / margin_part if margin_part else 0.0
         trade = ClosedTrade(symbol=symbol, action=pos.action, quantity=qty, entry=pos.entry,
                             exit=fill_price, pnl=pnl, return_pct=ret, opened_at=pos.opened_at,
                             closed_at=datetime.now(timezone.utc), reason=reason)

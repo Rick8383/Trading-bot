@@ -67,7 +67,8 @@ class PaperTradingSession:
             cash=self.settings.capital.initial,
             slippage_bps=self.settings.execution.slippage_bps,
             commission_bps=self.settings.execution.commission_bps,
-            max_leverage=self.settings.risk.default_leverage,
+            max_leverage=(self.settings.leverage.max_leverage if self.settings.leverage.enabled
+                          else self.settings.risk.default_leverage),
         )
         self.kb = KnowledgeBase(self.settings.learning.store_path, self.settings.learning.min_samples_for_lesson)
         self.journal = TradeJournal(self.settings.learning.journal_path)
@@ -235,7 +236,7 @@ class PaperTradingSession:
             order = Order(
                 symbol=d.asset, action=d.action, quantity=d.quantity,
                 entry=d.entry, stop_loss=d.stop_loss, take_profit=d.take_profit,
-                leverage=1.0,
+                leverage=d.leverage,
             )
             try:
                 if d.pending:
