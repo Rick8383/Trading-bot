@@ -21,7 +21,7 @@ htmlcov/
 *.sqlite3
 *.db
 data_store/
-reports/*.html
+reports/
 logs/
 *.log
 
