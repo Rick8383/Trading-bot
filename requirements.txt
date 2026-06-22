@@ -1,0 +1,34 @@
+# --- Core (required for the deterministic engine + tests) ---
+numpy>=1.26
+pandas>=2.1
+pydantic>=2.6
+PyYAML>=6.0
+structlog>=24.1
+
+# --- API / monitoring ---
+fastapi>=0.110
+uvicorn[standard]>=0.29
+
+# --- Production persistence (Phase 5) ---
+# psycopg[binary]>=3.1   # PostgreSQL backend (SQLite works out of the box)
+# Prometheus/Grafana run as containers (see docker-compose.yml); the /prometheus
+# endpoint needs no extra Python dependency.
+
+# --- Market data connectors (Phase 2) ---
+ccxt>=4.2              # crypto exchanges (public OHLCV, no API key needed)
+yfinance>=0.2         # equities/ETF historical data (free, no account)
+
+# --- Real-time loop + live-paper execution (Phase 3b) ---
+APScheduler>=3.10     # interval scheduling (loop falls back to time.sleep if absent)
+# alpaca-py>=0.20     # optional: official Alpaca SDK (we use plain REST via httpx)
+
+# --- Optional: heavy backtesting / ML (Phase 2+) ---
+# vectorbt>=0.26
+# scipy>=1.11
+# scikit-learn>=1.4
+# xgboost>=2.0
+# lightgbm>=4.3
+
+# --- Dev / test ---
+pytest>=8.0
+httpx>=0.27

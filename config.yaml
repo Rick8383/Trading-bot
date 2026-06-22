@@ -1,0 +1,145 @@
+# =====================================================================
+#  Trading Bot — central configuration
+#  Philosophy: capital preservation first, growth second.
+#  Defaults are deliberately conservative. Live trading is OFF.
+# =====================================================================
+
+mode: paper            # paper | backtest | live  (live requires manual unlock)
+
+capital:
+  initial: 100000.0
+  currency: USD
+
+risk:
+  risk_per_trade: 0.0075      # 0.5%-1% of equity risked per trade
+  risk_per_trade_min: 0.005
+  risk_per_trade_max: 0.01
+  daily_loss_limit: 0.02      # halt new entries beyond -2% on the day
+  max_drawdown: 0.15          # hard kill-switch threshold
+  min_rr: 2.5                 # minimum reward/risk (raised: bigger winners vs losers)
+  max_positions: 12
+  max_asset_exposure: 0.10    # max weight in a single asset
+  max_sector_exposure: 0.25
+  max_gross_exposure: 1.0
+  max_net_exposure: 1.0
+  max_short_exposure: 0.30
+  default_leverage: 1.0       # no leverage by default
+
+# Progressive de-risking as drawdown deepens (rolling DD -> exposure cap)
+drawdown_ladder:
+  - { dd: 0.05, exposure: 0.75 }   # DD > 5%  -> cap exposure to 75%
+  - { dd: 0.08, exposure: 0.50 }   # DD > 8%  -> 50%
+  - { dd: 0.10, exposure: 0.00 }   # DD > 10% -> flat / paper only
+  - { dd: 0.15, exposure: 0.00 }   # DD > 15% -> kill switch
+
+# Conviction -> allocation mapping (progressive, never binary)
+conviction:
+  flat_below: 40        # < 40   -> no position
+  reduced_below: 60     # 40-60  -> reduced size
+  standard_below: 80    # 60-80  -> standard size
+  # >= 80 -> max allowed size
+
+strategy:
+  rebalance: daily
+  timeframes: ["1H", "4H", "1D", "1W"]
+  ema_periods: [20, 50, 100, 200]
+  atr_period: 14
+  atr_stop_multiplier: 3.0   # wider stops so noise doesn't chop trades out
+  adx_period: 14
+  rsi_period: 14
+  structure_stops: true   # place SL/TP at support/resistance & liquidity (ATR-bounded)
+
+# Weights for the CIO's weighted vote (must roughly sum to 1.0)
+cio_weights:
+  risk: 0.25
+  trend: 0.20
+  momentum: 0.15
+  regime: 0.10
+  quant: 0.10
+  macro: 0.10
+  other: 0.10
+
+execution:
+  slippage_bps: 5
+  commission_bps: 2
+  cost_aware: true       # reject trades whose EV doesn't clear round-trip costs
+  min_edge_pct: 0.10     # ...by at least this margin (%). Critical for intraday.
+
+# Entry timing. 'pullback' enters via a limit order at the zone when extended.
+entries:
+  enabled: true
+  mode: market             # market (reliable) | pullback (better price, can miss entries)
+  max_extension_atr: 1.5   # 'extended' if price > EMA20 + N*ATR (long)
+  pullback_buffer_atr: 0.1
+  expiry_bars: 5           # cancel the limit if unfilled after N bars
+
+# Correlation-aware portfolio construction (avoid 20 names = 1 bet).
+portfolio:
+  enabled: true
+  max_correlation: 0.85    # veto a new trade above this avg correlation to the book
+  corr_lookback: 60
+  corr_threshold: 0.30     # below this: no size shrink
+  min_scale: 0.40          # floor on correlation-based size shrink
+
+# Conviction-gated, liquidation-safe leverage. OFF by default (founder opt-in).
+# Leverage is applied ONLY on high-conviction setups, and only when the stop sits
+# safely inside the liquidation price (so the stop, never the exchange, closes a
+# loser). Dollar risk per trade is hard-capped. Requires a futures venue to
+# execute live (spot can't be leveraged/shorted).
+leverage:
+  enabled: false
+  max_leverage: 10         # cap; conviction decides the actual leverage used
+  conviction_x5: 70        # >= this conviction -> up to x5
+  conviction_x10: 85       # >= this conviction -> up to x10
+  max_risk_per_trade: 0.04 # hard cap on dollar risk even with leverage
+  liquidation_buffer: 0.80 # stop must be inside buffer/leverage of entry
+
+# Active trade management (smart exits). Thresholds in R (risk) multiples.
+exits:
+  enabled: true
+  scale_out_at_r: 1.0       # take partial profit at +1R
+  scale_out_fraction: 0.5   # close half there
+  breakeven_at_r: 1.0       # move stop to entry at +1R (free trade)
+  trail_after_r: 1.2        # let it run a bit before trailing
+  trail_atr_mult: 3.0
+  time_stop_bars: 60        # give trades room to develop (was 25)
+  time_stop_min_r: 0.0      # only cut trades NOT in profit (was 0.5)
+
+universe:
+  etfs: [SPY, QQQ, IWM, TLT, GLD, XLF, XLK, XLE]
+  equities: [AAPL, MSFT, NVDA, AMZN, GOOGL]
+  # Top-20 crypto by market cap (USDT pairs). Trade with --source crypto.
+  crypto: ["BTC/USDT", "ETH/USDT", "BNB/USDT", "SOL/USDT", "XRP/USDT",
+           "ADA/USDT", "DOGE/USDT", "AVAX/USDT", "TRX/USDT", "LINK/USDT",
+           "DOT/USDT", "MATIC/USDT", "TON/USDT", "LTC/USDT", "BCH/USDT",
+           "SHIB/USDT", "UNI/USDT", "ATOM/USDT", "XLM/USDT", "NEAR/USDT"]
+  filters:
+    min_daily_volume: 1000000
+    max_spread_bps: 25
+
+learning:
+  enabled: true
+  min_samples_for_lesson: 8     # need N occurrences before trusting a lesson
+  max_conviction_penalty: 25    # cap how much learned lessons can dock conviction
+  store_path: "data_store/knowledge.json"
+  journal_path: "data_store/journal.jsonl"
+
+# Per-layer on/off. All advanced layers ON (paper capital). The daily layer
+# report measures each one; flip any to false to remove it individually.
+layers:
+  smc: true
+  volume_profile: true
+  macro: true
+  news: true
+  social: true
+  ml: true
+  structure_stops: true
+  smart_exits: true
+  cost_filter: true
+  portfolio: true
+  leverage: false        # opt-in (conviction-gated); enable via --leverage
+
+monitoring:
+  telegram_enabled: false
+  email_enabled: false
+  prometheus_enabled: false
