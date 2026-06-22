@@ -41,6 +41,7 @@ Trois règles **structurelles** (codées, pas seulement promises) :
 | 7c | **Réglage sorties** (moins de time-stop, stops ATR plus larges, RR mini 2.5, **bonus d'apprentissage** sur contextes gagnants) ; **fix scheduler** (`next_run_time`) | ✅ |
 | 7d | **Fix conviction directionnelle** (le bot peut enfin SHORTER) + **fix frontière RR** + profil **`aggressive`** (croissance petit capital) | ✅ |
 | 7e | **Venue futures** (vrais shorts) + **levier x5/x10 conviction-gated & liquidation-safe** (off par défaut) | ✅ |
+| 7f | **Toutes les couches activables/désactivables individuellement** (`layers:`) + **rapport quotidien d'attribution par couche** (leave-one-out : bénéfique/neutre/néfaste) | ✅ |
 | 8+ | Voir §6 « Vers le bot ultime » | 🔜 |
 
 **Tests : `pytest -q` (doit rester vert).** Le détail du nombre de tests évolue ;
@@ -99,6 +100,9 @@ python scripts/run_paper.py --ml            # + agent ML
 python scripts/run_backtest.py              # backtest + Monte Carlo
 python scripts/run_walkforward.py           # robustesse OOS (EMA-cross)
 python scripts/run_walkforward.py --pipeline # robustesse OOS du pipeline COMPLET
+python scripts/ablation.py                  # contribution cumulative des couches
+python scripts/layer_report.py              # rapport d'attribution par couche (quotidien)
+python scripts/layer_report.py --loop-daily # ...automatiquement toutes les 24h
 python scripts/run_live.py --cycles 3       # boucle temps réel (paper)
 
 TRADING_DB=data_store/trading.db uvicorn app.main:app --reload

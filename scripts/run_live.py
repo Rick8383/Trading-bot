@@ -44,7 +44,8 @@ def main() -> None:
     ap.add_argument("--interval", type=int, default=3600, help="seconds between cycles (start loop)")
     ap.add_argument("--cycles", type=int, default=0, help="run N cycles then exit (0 = run forever)")
     ap.add_argument("--db", default="data_store/trading.db")
-    ap.add_argument("--ml", action="store_true", help="include the ML proposer agent")
+    ap.add_argument("--no-ml", dest="no_ml", action="store_true",
+                    help="disable the ML agent (all layers are ON by default)")
     ap.add_argument("--timeframe", default="1D",
                     help="primary trading timeframe: 1m,5m,15m,30m,1H,4H,1D (default 1D)")
     ap.add_argument("--context-tf", default="1W", dest="context_tf",
@@ -55,8 +56,9 @@ def main() -> None:
 
     s = apply_risk_profile(load_config(), args.risk)
     if args.leverage and args.leverage > 1:
-        s.leverage.enabled = True
+        s.layers.leverage = True
         s.leverage.max_leverage = float(min(args.leverage, 10))
+    s.sync_layer_flags()   # layers.* drive the whole stack
     provider = make_provider("synthetic" if args.source == "synthetic" else args.source)
     broker = make_broker(s, args.venue)
     # Default to the full top-20 crypto universe (or all ETFs+equities).
@@ -67,10 +69,12 @@ def main() -> None:
     else:
         symbols = s.universe.etfs + s.universe.equities
 
-    from app.agents import build_agents
+    from app.agents import build_agents_from_settings
+    if args.no_ml:
+        s.layers.ml = False
+    agents = build_agents_from_settings(s)
     runner = RealtimeRunner(settings=s, provider=provider, broker=broker,
-                            symbols=symbols, store=make_store(args.db),
-                            agents=build_agents(include_ml=args.ml),
+                            symbols=symbols, store=make_store(args.db), agents=agents,
                             base_timeframe=args.timeframe, context_timeframe=args.context_tf)
     lev_txt = f"x{int(s.leverage.max_leverage)} (conviction-gated)" if s.leverage.enabled else "off"
     print(f"Live loop | source={args.source} | venue={args.venue} | broker={type(broker).__name__} "

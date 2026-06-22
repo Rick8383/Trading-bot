@@ -41,6 +41,28 @@ DEFAULT_ANALYTIC_AGENTS: list[AnalyticAgent] = [
 ]
 
 
+def build_agents_from_settings(settings) -> list[AnalyticAgent]:
+    """Build the roster from settings.layers — the per-layer on/off source."""
+    L = settings.layers
+    agents: list[AnalyticAgent] = [
+        TrendAgent(), MomentumAgent(), VolatilityAgent(), RegimeAgent(),
+        VolumeAgent(), MarketStructureAgent(), QuantAgent(),
+    ]
+    if L.smc:
+        agents.append(SMCAgent())
+    if L.macro:
+        agents.append(MacroAgent())
+    if L.volume_profile:
+        agents.append(VolumeProfileAgent())
+    if L.news:
+        agents.append(NewsAgent())
+    if L.social:
+        agents.append(SocialSentimentAgent())
+    if L.ml:
+        agents.append(MLAgent())
+    return agents
+
+
 def build_agents(
     include_ml: bool = False,
     include_smc: bool = True,
@@ -89,4 +111,5 @@ __all__ = [
     "MLAgent",
     "DEFAULT_ANALYTIC_AGENTS",
     "build_agents",
+    "build_agents_from_settings",
 ]

@@ -124,6 +124,21 @@ learning:
   store_path: "data_store/knowledge.json"
   journal_path: "data_store/journal.jsonl"
 
+# Per-layer on/off. All advanced layers ON (paper capital). The daily layer
+# report measures each one; flip any to false to remove it individually.
+layers:
+  smc: true
+  volume_profile: true
+  macro: true
+  news: true
+  social: true
+  ml: true
+  structure_stops: true
+  smart_exits: true
+  cost_filter: true
+  portfolio: true
+  leverage: false        # opt-in (conviction-gated); enable via --leverage
+
 monitoring:
   telegram_enabled: false
   email_enabled: false

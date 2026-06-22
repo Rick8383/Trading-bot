@@ -38,7 +38,8 @@ def main() -> None:
     ap.add_argument("--db", default=None, help="SQLite path for durable persistence")
     ap.add_argument("--report", default="reports/paper_report.html",
                     help="HTML report output path (set empty to skip)")
-    ap.add_argument("--ml", action="store_true", help="include the ML proposer agent")
+    ap.add_argument("--no-ml", dest="no_ml", action="store_true",
+                    help="disable the ML agent (all layers are ON by default)")
     args = ap.parse_args()
 
     settings = load_config()
@@ -48,7 +49,11 @@ def main() -> None:
         store = make_store(args.db)   # sqlite path or postgresql://... URL
 
     from app.agents import build_agents
-    session = PaperTradingSession(settings, store=store, agents=build_agents(include_ml=args.ml))
+    from app.agents import build_agents_from_settings
+    if args.no_ml:
+        settings.layers.ml = False
+    settings.sync_layer_flags()
+    session = PaperTradingSession(settings, store=store, agents=build_agents_from_settings(settings))
 
     if args.source == "synthetic":
         symbols = args.symbols or [f"SYM{i}" for i in range(8)]

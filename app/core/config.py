@@ -176,6 +176,30 @@ class MonitoringConfig(BaseModel):
     prometheus_enabled: bool = False
 
 
+class LayersConfig(BaseModel):
+    """On/off switch for every optional layer — the single source of truth.
+
+    Core agents (trend, momentum, volatility, regime, volume, structure, quant)
+    are always on. Everything else can be toggled individually so a layer the
+    daily report flags as harmful can be removed without touching code. Decision
+    layers mirror their own config flags and are toggled in lockstep.
+    """
+
+    # optional agents
+    smc: bool = True
+    volume_profile: bool = True
+    macro: bool = True
+    news: bool = True
+    social: bool = True
+    ml: bool = True
+    # decision layers (mirror strategy/exits/execution/portfolio/leverage flags)
+    structure_stops: bool = True
+    smart_exits: bool = True
+    cost_filter: bool = True
+    portfolio: bool = True
+    leverage: bool = False
+
+
 class Settings(BaseModel):
     mode: str = "paper"
     capital: CapitalConfig
@@ -189,9 +213,22 @@ class Settings(BaseModel):
     exits: ExitConfig = ExitConfig()
     portfolio: PortfolioConfig = PortfolioConfig()
     leverage: LeverageConfig = LeverageConfig()
+    layers: LayersConfig = LayersConfig()
     universe: UniverseConfig = UniverseConfig()
     learning: LearningConfig = LearningConfig()
     monitoring: MonitoringConfig = MonitoringConfig()
+
+    def sync_layer_flags(self) -> "Settings":
+        """Mirror the decision-layer toggles in ``layers`` onto their own configs.
+
+        Lets the founder flip a single ``layers.*`` switch and have the whole
+        stack respect it (the report uses this to enable/disable cleanly)."""
+        self.strategy.structure_stops = self.layers.structure_stops
+        self.exits.enabled = self.layers.smart_exits
+        self.execution.cost_aware = self.layers.cost_filter
+        self.portfolio.enabled = self.layers.portfolio
+        self.leverage.enabled = self.layers.leverage
+        return self
 
     @field_validator("mode")
     @classmethod
